@@ -945,6 +945,7 @@
         "addr": "71 castle street city centre"
     },
     {
+        "name": "UnknownOndraInserted",
         "phone": "01223 327908",
         "pricerange": "cheap",
         "area": "centre",
