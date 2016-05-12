@@ -12,8 +12,8 @@ logger = logging.getLogger(__name__)
 class Dstc2DB:
     def __init__(self, filename, first_n=None):
         self._raw_data = raw_data = json.load(open(filename))[:first_n]
-        self._col_names = col_names = sorted(list(set([r.keys() for r in raw_data])))
-        self._col_name_vocab = Vocabulary(col_names)
+        self._col_names = col_names = sorted(list(set([k for r in raw_data for k in r.keys()])))
+        self._col_name_vocab = Vocabulary([], extra_words=col_names, unk=None)
         self._col_vocabs = col_vocabs = []
         for c in col_names:
             col_occur = [r[c] for r in raw_data]
@@ -55,7 +55,7 @@ class Dstc2DB:
         def mask_ent(sentence, vocab):
             mask = [0] * len(sentence)
             for i, w in enumerate(sentence):
-                for ent in vocab:
+                for ent in vocab.words():
                     e = ent.split()
                     if w == e[0] and sentence[i:i + len(e)] == e:
                         logger.debug('found an entity %s in %s', ent, sentence)
@@ -75,7 +75,7 @@ class Dstc2:
         self._raw_data = raw_data = json.load(open(filename))
         self._first_n = min(first_n, len(raw_data)) if first_n else len(raw_data)
         dialogs = [[(turn[0] + turn[1]).split() for turn in dialog] for dialog in raw_data]
-        self._speak_vocab = Vocabulary([], extra_words=['usr', 'sys'])
+        self._speak_vocab = Vocabulary([], extra_words=['usr', 'sys'], unk=None)
         usr, ss = self._speak_vocab.get_i('usr'), self._speak_vocab.get_i('sys')
         self._word_speakers = speakers = [[[ss] * len(turn[0].split()) + [usr] * len(turn[1].split()) for turn in dialog] for dialog in raw_data]
         labels = [[turn[4] for turn in dialog] for dialog in raw_data]
@@ -84,7 +84,7 @@ class Dstc2:
 
         dialogs, labels, speakers, targets = dialogs[:first_n], labels[:first_n], speakers[:first_n], targets[:first_n]
 
-        self._vocab = words_vocab or Vocabulary([w for turns in dialogs for turn in turns for w in turn])
+        self._vocab = words_vocab = words_vocab or Vocabulary([w for turns in dialogs for turn in turns for w in turn])
 
         s = sorted([len(t) for turns in dialogs for t in turns])
         max_turn, perc95t = s[-1], s[int(0.95 * len(s))]
@@ -94,7 +94,6 @@ class Dstc2:
         max_dial, perc95d = d[-1], d[int(0.95 * len(d))]
         self._max_dial_len = mdl = max_dial_len or max_dial 
         logger.info('Dial length: %4d.\Dial turn len %4d.\n95-percentil %4d.\n', mdl, max_dial, perc95d)
-        self._dial_lens = np.array([len(d) for d in dialogs])
 
         entities = [[db.extract_entities(turn) for turn in d] for d in dialogs]  
 
@@ -110,8 +109,19 @@ class Dstc2:
         self._turn_targets = ttarg = np.zeros((len(dialogs), mdl, mtarl), dtype=np.int64)
         self._turn_target_lens = np.zeros((len(dialogs), mdl), dtype=np.int64)
 
+        tmp1, tmp2 = db.column_names + ['words'], db.col_vocabs + [words_vocab]
+        self._target_vocabs = OrderedDict(zip(tmp1, tmp2))
+        self.word_vocabs_uplimit = OrderedDict(
+            zip(self._target_vocabs.keys(),
+                np.cumsum([len(voc) for voc in self._target_vocabs.values()])))
+        self.word_vocabs_downlimit = OrderedDict(
+            zip(self._target_vocabs.keys(),
+                [0] + list(self.word_vocabs_uplimit.values())[:-1]))
+
+        dial_lens = []
         for i, (d, dtargs) in enumerate(zip(dialogs, targets)):
             assert len(d) == len(dtargs)
+            dial_len = 0
             for j, (target, turn) in enumerate(zip(d, dtargs)):
                 word_ids = self._extract_vocab_ids(db, target)
                 if j > mdl or len(turn) > mtl or len(word_ids) > mtarl:  
@@ -119,8 +129,8 @@ class Dstc2:
                         "a) num_turns too big "
                         "b) current turn too long. "
                         "c) current target too long.")
-                    assert j > 0, 'We do not want empty dialogs. TODO if this happends.'
-                    break 
+                    break
+                dial_len = j + 1
                 self._turn_lens[i, j] = len(turn)
                 self._turn_target_lens[i, j] = len(word_ids)
                 for k, w in enumerate(turn):
@@ -129,15 +139,12 @@ class Dstc2:
                         self._word_ent[i, j, k, l] = e[k]
                 for k, w_id in enumerate(word_ids):
                     ttarg[i, j, k] = w_id
+            if dial_len > 0:
+                dial_lens.append(dial_len)
+            else:
+                logger.debug('Discarding whole dialog: %d', i)
 
-        self._target_vocabs = OrderedDict(
-                zip(db.col_names + ['words'], db.col_vocabs + [words_vocab]))
-        self.word_vocabs_uplimit = OrderedDict(
-            zip(self._target_vocabs.keys(),
-                np.cumsum([len(voc) for voc in self._target_vocabs.values()])))
-        self.word_vocabs_downlimit = OrderedDict(
-            zip(self._target_vocabs.keys(),
-                [0] + self.word_vocabs_uplimit.values()[:-1]))
+        self._dial_lens = np.array(dial_lens)
 
     def _extract_vocab_ids(self, db, target_words):
         '''Heuristic how to recognize named entities from DB in sentence and
@@ -150,10 +157,12 @@ class Dstc2:
                 continue
             w_found = False
             for vocab_name, vocab in self._target_vocabs.items():
-                for ent in vocab:
+                if vocab_name == 'words':
+                    continue
+                for ent in vocab.words():
                     e = ent.split()
-                    if w == e[0] and target_words[i, len(e)] == e:
-                        logger.debug('found an entity %s in %s', ent, target_words)
+                    if w == e[0] and target_words[i:i + len(e)] == e:
+                        logger.debug('found an entity "%s" from column %s in target_words %s', ent, vocab_name, target_words)
                         skip_words_of_entity = len(e)
                         target_ids.append(self.get_target_surface_id(vocab_name, vocab, ent))
                         w_found = True
@@ -161,8 +170,9 @@ class Dstc2:
                 if w_found:
                     break
             if not w_found:
-                logger.debug('using UNK ID from _vocab == _target_vocabs["words"] for targetword %s' % w)
-                self._vocab.get_i(w)
+                logger.debug('Target word "%s" treated as regular word', w)
+                target_ids.append(self._vocab.get_i(w))
+        return target_ids
 
     def get_target_surface_id(self, vocab_name, vocab, w):
         return self.word_vocabs_downlimit[vocab_name] + vocab.get_i(w)
@@ -174,7 +184,8 @@ class Dstc2:
         return vocab_name, self._target_vocabs[vocab_name].get_w(w_id_in_vocab)
 
     def __len__(self):
-        return self._first_n
+        '''Number of dialogs valid in other variables'''
+        return len(self._dial_lens)
 
     @property
     def words_vocab(self):

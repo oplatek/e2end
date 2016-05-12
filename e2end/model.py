@@ -1,28 +1,262 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-import numpy as np
+# import numpy as np
 import tensorflow as tf
 
 import logging, math
-import tensorflow.python.ops.seq2seq
 from tensorflow.python.ops import control_flow_ops
 from .utils import elapsed_timer
+
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 
 
-def lengths2mask2d(lengths, max_len):
-    # Filled the row of 2d array with lengths
-    lengths_transposed = tf.expand_dims(lengths, 1)
-    lengths_tiled = tf.tile(lengths_transposed, [1, max_len])
+class E2E_property_decoding():
+    def __init__(self, config):
+        c = config  # shortcut as it is used heavily
 
-    # Filled the rows of 2d array 0, 1, 2,..., max_len ranges 
-    rng = tf.range(0, max_len, 1)
-    range_row = tf.expand_dims(rng, 0)
-    range_tiled = tf.tile(range_row, [4, 1])
+        logger.info('Compiling %s', self.__class__.__name__)
 
-    # Use the logical operations to create a mask
-    return tf.to_float(tf.less(range_tiled, lengths_tiled))
+        logger.debug('For each word_i from i in 1..max_turn_len there is a list of features: word, belongs2slot1, belongs2slot2, ..., belongs2slotK')
+        logger.debug('Feature list uses placelhoder.name to create feed dictionary')
+
+        esingle_cell = tf.nn.rnn_cell.GRUCell(c.encoder_size)
+        encoder_cell = tf.nn.rnn_cell.MultiRNNCell(
+            [esingle_cell] * c.encoder_layers) if c.encoder_layers > 1 else esingle_cell
+
+        logger.debug('Words are the most important features')
+        self.feat_list = feat_list = [tf.placeholder(tf.int64, shape=(c.batch_size, c.max_turn_len), name='words')]
+        logger.debug('Indicators if a word belong to a slot - like abstraction - densify data')
+        for i, _ in enumerate(c.column_names):
+            feat = tf.placeholder(tf.int64, shape=(c.batch_size, c.max_turn_len), name='slots_indicators{}'.format(i))
+            feat_list.append(feat)
+        logger.debug('Another feature for each word we have speaker id')
+        feat_list.append(tf.placeholder(tf.int64, shape=(c.batch_size, c.max_turn_len)))
+
+        self.turn_len = turn_len = tf.placeholder(tf.int64, shape=(c.batch_size,))
+
+        logger.debug('The decoder uses special token GO_ID as first input. Adding to vocabulary.')
+        self.GO_ID = c.num_words
+        self.goid = tf.constant(self.GO_ID)
+        self.dec_targets = tf.placeholder(tf.int64, shape=(c.batch_size, c.max_target_len))
+        goid_batch_vec = tf.constant([self.GO_ID] * c.batch_size, shape=(c.batch_size, 1), dtype=tf.int64)
+        logger.debug('Adding GO_ID at the beggining of each decoder input')
+        decoder_inputs2D = [goid_batch_vec] + tf.split(1, c.max_target_len, self.dec_targets)
+        decoder_inputs = [tf.squeeze(di,[1]) for di in decoder_inputs2D]
+        logger.debug('decoder_inputs[0:1].get_shape(): %s, %s', decoder_inputs[0].get_shape(), decoder_inputs[1].get_shape())
+
+
+        dsingle_cell = tf.nn.rnn_cell.GRUCell(c.num_rows + c.encoder_size + c.encoder_size)
+        decoder_cell = tf.nn.rnn_cell.MultiRNNCell(
+            [dsingle_cell] * c.decoder_layers) if c.decoder_layers > 1 else dsingle_cell
+        self.decoder_lengths = dec_lens = tf.placeholder(tf.int64, shape=(c.batch_size,))
+        target_mask = [tf.squeeze(m, [1]) for m in tf.split(1, c.max_target_len, lengths2mask2d(dec_lens, c.max_target_len))]
+
+        self.dropout_keep_prob = drop_keep_prob = tf.placeholder('float')
+        self.dropout_db_keep_prob = drop_db_keep_prob = tf.placeholder('float')
+
+        self.is_first_turn = tf.placeholder(tf.bool)
+        self.db_row_initializer = dbi = tf.placeholder(tf.int64, shape=(c.num_rows, c.num_cols))
+        self.feed_previous = tf.placeholder(tf.bool)
+
+        with tf.variable_scope('encoder'), elapsed_timer() as inpt_timer:
+            logger.debug(
+                'embedded_inputs is a list of size c.max_turn_len with tensors of shape (batch_size, all_feature_size)')
+
+            feat_embeddings = []
+            for i in range(len(feat_list)):
+                if i == 0:  # words
+                    logger.debug('Increasing the size to fit in the GO_ID id. See above')
+                    voclen = c.num_words + 1
+                    emb_size = c.word_embed_size
+                else:  # binary features
+                    voclen = 2
+                    emb_size = c.feat_embed_size
+                feat_embeddings.append(tf.get_variable('feat_embedding{}'.format(i),
+                                                       initializer=tf.random_uniform([voclen, emb_size], -math.sqrt(3),
+                                                                                     math.sqrt(3))))
+
+            embedded_inputs = []
+            for j in range(c.max_turn_len):
+                features_j_word = []
+                for i in range(len(feat_list)):
+                    embedded = tf.nn.embedding_lookup(feat_embeddings[i], feat_list[i][:, j])
+                    dropped_embedded = tf.nn.dropout(embedded, drop_keep_prob)
+                    features_j_word.append(dropped_embedded)
+                w_features = tf.concat(1, features_j_word)
+                j or logger.debug('Word features has shape (batch, concat_embs) == %s', w_features.get_shape())
+                embedded_inputs.append(w_features)
+
+            logger.debug(
+                'We get input features for each turn, to represent dialog, we need to store the state between the turns')
+            dialog_state_before_acc = tf.get_variable('dialog_state_before_turn',
+                                                      initializer=tf.zeros([c.batch_size, c.encoder_size],
+                                                                           dtype=tf.float32), trainable=False)
+            dialog_state_before_turn = control_flow_ops.cond(self.is_first_turn,
+                                                             lambda: encoder_cell.zero_state(c.batch_size, tf.float32),
+                                                             lambda: dialog_state_before_acc)
+            logger.debug('Initialization of encoder inputs and control flow took  %.2f s.', inpt_timer())
+            words_hidden_feat, dialog_state_after_turn = tf.nn.rnn(encoder_cell, embedded_inputs,
+                                                                   initial_state=dialog_state_before_turn,
+                                                                   sequence_length=turn_len)
+            dialog_state_before_acc = tf.assign(dialog_state_before_acc, dialog_state_after_turn)
+
+        with tf.variable_scope('db_encoder'), elapsed_timer() as db_timer:
+            col_embeddings = [tf.get_variable('col_values_embedding{}'.format(i),
+                                              initializer=tf.random_uniform([col_vocab_size, c.col_emb_size],
+                                                                            -math.sqrt(3), math.sqrt(3))) for
+                              i, col_vocab_size in enumerate(c.col_vocab_sizes)]
+
+            self.db_rows = db_rows = tf.Variable(dbi, trainable=False, collections=[])
+            db_rows_embeddings = []
+            for i in range(c.num_rows):
+                row_embed_arr = [
+                    tf.nn.dropout(tf.nn.embedding_lookup(col_embeddings[j], db_rows[i, j]), drop_db_keep_prob) for j in
+                    range(c.num_cols)]
+                row_embed = tf.concat(0, row_embed_arr)
+                i or logger.debug('row_embed_arr is list of different [%s] * %d', row_embed_arr[0].get_shape(),
+                                  len(row_embed_arr))
+                i or logger.debug('row_embed shape %s', row_embed.get_shape())
+                db_rows_embeddings.append(row_embed)
+            logger.debug('Create embeddings of  all db rows took %.2f s', db_timer())
+
+            batched_db_rows_embeddings = [tf.tile(tf.expand_dims(re, 0), [c.batch_size, 1]) for re in
+                                          db_rows_embeddings]
+
+            # logger.debug('Building word & db_vocab attention started %.2f from DB construction start')
+            # logger.debug('Simple computation because lot of inputs')
+            # assert c.col_emb_size == encoder.hidden_size, 'Otherwise I cannot do scalar product'
+            # words_attributes_distance = []
+            # for w_hid_feat in words_hidden_feat:
+            #     vocab_offset = 0
+            #     for vocab_emb, vocab_size in zip(col_embeddings, col_vocab_sizes):
+            #         for idx in range(vocab_size):
+            #             w_emb = tf.nn.embedding_lookup(vocab_emb, idx)
+            #             wT_times_db_emb_value = tf.matmul(tf.transpose(w_hid_feat), w_emb)
+            #             words_attributes_distance.append(wT_times_db_emb_value)
+            # words_attributes_att = tf.softmax(tf.concat(0, words_attributes_distance))
+            # words_vocab_entries_att = todo_reshape_into_word_TIMES_slot_vocab_TIMES_slot_value
+
+            def select_row(batched_row, encoded_history, reuse=False, scope='select_row'):
+                with tf.variable_scope(scope, reuse=reuse):
+                    inpt = tf.concat(1, [batched_row, encoded_history])
+                    inpt_size = inpt.get_shape().as_list()[1]
+                    W1 = tf.get_variable('W1', initializer=tf.random_normal([inpt_size, c.mlp_db_l1_size]))
+                    b1 = tf.get_variable('b1', initializer=tf.random_normal([c.mlp_db_l1_size]))
+                    layer1 = tf.nn.relu(tf.nn.xw_plus_b(inpt, W1, b1))
+
+                    last_layer = layer1
+                    last_layer_size = c.mlp_db_l1_size
+                    Out = tf.get_variable('Out', initializer=tf.random_normal([last_layer_size, 1]))
+                    b_out = tf.get_variable('b_out', initializer=tf.random_normal([1]))
+                    should_be_selected_att = tf.nn.sigmoid(tf.nn.xw_plus_b(last_layer, Out, b_out))
+                    return should_be_selected_att
+
+            row_selected_arr = []
+            for i, r in enumerate(batched_db_rows_embeddings):
+                reuse = False if i == 0 else True
+                row_sel = select_row(r, dialog_state_after_turn, reuse=reuse)
+                i or logger.debug('First row selected shape: %s', row_sel.get_shape())
+                row_selected_arr.append(row_sel)
+
+            row_selected = tf.transpose(tf.pack(row_selected_arr), perm=(1, 0, 2))
+            logger.debug('row_selected shape: %s', row_selected.get_shape())
+
+            weighted_rows = [tf.mul(w, r) for w, r in zip(batched_db_rows_embeddings, row_selected_arr)]
+            logger.debug('weigthed_rows[0].get_shape() %s', weighted_rows[0].get_shape())
+            db_embed_inputs = tf.concat(1, weighted_rows)
+            logger.debug('db_embed_inputs.get_shape() %s', db_embed_inputs.get_shape())
+
+            input_len = db_embed_inputs.get_shape().as_list()[1]
+            Wdb = tf.get_variable('Wdb', initializer=tf.random_normal([input_len, c.mlp_db_embed_l1_size]))
+            logger.debug('Wdb.get_shape() %s', Wdb.get_shape())
+            Bdb = tf.get_variable('Bdb', initializer=tf.random_normal([c.mlp_db_embed_l1_size]))
+            l1 = tf.nn.relu(tf.nn.xw_plus_b(db_embed_inputs, Wdb, Bdb))
+            out_size = encoder_cell.output_size
+            WOutDb = tf.get_variable('WOutDb', initializer=tf.random_normal([c.mlp_db_embed_l1_size, out_size]))
+            BOutDb = tf.get_variable('BOutDb', initializer=tf.random_normal([out_size]))
+            db_embed = tf.nn.xw_plus_b(l1, WOutDb, BOutDb)
+            logger.debug('db_embed.get_shape() %s', db_embed.get_shape())
+
+        with tf.variable_scope('decoder'), elapsed_timer() as dec_timer:
+            # Take from tf/python/ops/seq2seq.py:706
+            # First calculate a concatenation of encoder outputs to put attention on.
+            words_and_db = words_hidden_feat + [db_embed]
+            logger.debug('top_states[0].get_shape() %s', words_hidden_feat[0].get_shape())
+            top_states = [tf.reshape(e, [-1, 1, encoder_cell.output_size])
+                          for e in words_and_db]
+            attention_states = tf.concat(1, top_states)
+            logger.debug('attention_states.get_shape() %s', attention_states.get_shape())
+
+            total_input_vocab_size = sum(c.col_vocab_sizes + [c.num_words])
+            decoder_cell = tf.nn.rnn_cell.OutputProjectionWrapper(decoder_cell, total_input_vocab_size)
+
+            encoded_state = tf.concat(1, [dialog_state_after_turn, tf.squeeze(row_selected, [2]), db_embed])
+            encoded_state_size = encoded_state.get_shape().as_list()[1]
+            assert encoded_state_size == decoder_cell.state_size, str(decoder_cell.state_size) + str(encoded_state_size)
+            logger.debug('encoded_state.get_shape() %s', encoded_state.get_shape())
+
+            assert c.word_embed_size == c.col_emb_size, 'We are docoding one of entity.property from DB or word'
+            num_decoder_symbols = total_input_vocab_size
+            logger.debug('num_decoder_symbols %s', num_decoder_symbols)
+
+            # If feed_previous is a Tensor, we construct 2 graphs and use cond.
+
+            def decoder(feed_previous_bool, scope='att_decoder'):
+                reuse = None if feed_previous_bool else True
+                with tf.variable_scope(scope, reuse=reuse):
+                    outputs, state = embedding_attention_decoder(
+                        decoder_inputs, encoded_state, attention_states, decoder_cell,
+                        num_decoder_symbols, c.word_embed_size, num_heads=1,
+                        feed_previous=feed_previous_bool,
+                        update_embedding_for_previous=True,
+                        initial_state_attention=False)
+                    return outputs + [state]
+
+            *dec_outputs, dec_state = control_flow_ops.cond(self.feed_previous,
+                                                            lambda: decoder(True),
+                                                            lambda: decoder(False))
+            self.dec_outputs = dec_outputs
+            logger.debug('Building of the decoder took %.2f s.', dec_timer())
+
+        with tf.variable_scope('loss'), elapsed_timer() as loss_timer:
+            # TODO load reward and implement mixer
+            logger.debug('decoder_inputs are targets shifted by one')
+            self.loss = tf.nn.seq2seq.sequence_loss(dec_outputs[1:], decoder_inputs[1:], target_mask, softmax_loss_function=None)
+            self._optimizer = opt = tf.train.GradientDescentOptimizer(c.learning_rate)
+            self.global_step = tf.Variable(0, name='global_step', trainable=False)
+            tf.scalar_summary(self.loss.op.name + 'loss', self.loss)
+            params = tf.trainable_variables()
+            gradients = tf.gradients(self.loss, params)
+            self.clipped_gradients, self.grad_norm = tf.clip_by_global_norm(gradients, c.max_gradient_norm)
+            self.updates = opt.apply_gradients(zip(self.clipped_gradients, params), global_step=self.global_step)
+            logger.debug('Building the loss function and gradient udpate ops took %.2f s', loss_timer())
+
+        times = [inpt_timer(), db_timer(), dec_timer(), loss_timer()]
+        logger.debug('Blocks times: %s,\n total: %d', times, sum(times))
+
+    def train_step(self, session, input_feed_dict, labels_dict, log_output=False):
+        train_dict = {**input_feed_dict, **labels_dict}
+
+        output_feed = [self.updates,]  # Update Op that does SGD.
+        if log_output:
+            output_feed += [self.grad_norm,  # Gradient norm.
+                            self.loss]  # Loss for this batch.
+        return session.run(output_feed, train_dict)
+
+    def decode_step(self, session, input_feed_dict):
+        return session.run(self.dec_outputs, input_feed_dict)
+
+    def eval_step(self, session, input_feed_dict, labels_dict):
+        output_feed = self.dec_outputs + [self.loss]
+        eval_dict = {**input_feed_dict, **labels_dict}
+
+        *dec_symbols, loss_value = session.run(output_feed, eval_dict)
+        property_score = 666  # TODO compare counters todo normalize them
+        return (dec_symbols, loss_value, property_score)
+
+    def log(self, name, writer, step_outputs, e, step):
+        print('TODO')
 
 
 def embedding_attention_decoder(decoder_inputs, initial_state, attention_states,
@@ -30,7 +264,7 @@ def embedding_attention_decoder(decoder_inputs, initial_state, attention_states,
                                 output_size=None, output_projection=None,
                                 feed_previous=False,
                                 update_embedding_for_previous=True,
-                                dtype=dtypes.float32, scope=None,
+                                dtype=tf.float32, scope=None,
                                 initial_state_attention=False):
     """RNN decoder with embedding and attention and a pure-decoding option.
 
@@ -79,265 +313,86 @@ def embedding_attention_decoder(decoder_inputs, initial_state, attention_states,
     if output_size is None:
         output_size = cell.output_size
     if output_projection is not None:
-        proj_biases = ops.convert_to_tensor(output_projection[1], dtype=dtype)
+        proj_biases = tf.convert_to_tensor(output_projection[1], dtype=dtype)
         proj_biases.get_shape().assert_is_compatible_with([num_symbols])
 
-    with variable_scope.variable_scope(scope or "embedding_attention_decoder"):
-        with ops.device("/cpu:0"):
-            embedding = variable_scope.get_variable("embedding", [num_symbols, embedding_size])
+    def _extract_argmax_and_embed(embedding, output_projection=None,
+                                  update_embedding=True):
+        """Get a loop_function that extracts the previous symbol and embeds it.
+
+        Args:
+          embedding: embedding tensor for symbols.
+          output_projection: None or a pair (W, B). If provided, each fed previous
+            output will first be multiplied by W and added B.
+          update_embedding: Boolean; if False, the gradients will not propagate
+            through the embeddings.
+
+        Returns:
+          A loop function.
+        """
+        def loop_function(prev, _):
+            if output_projection is not None:
+                prev = tf.nn.xw_plus_b(
+                    prev, output_projection[0], output_projection[1])
+            prev_symbol = tf.argmax(prev, 1)
+            # Note that gradients will not propagate through the second parameter of
+            # embedding_lookup.
+            emb_prev = tf.nn.embedding_lookup(embedding, prev_symbol)
+            if not update_embedding:
+                emb_prev = tf.stop_gradient(emb_prev)
+            return emb_prev
+        return loop_function
+
+    with tf.variable_scope(scope or "embedding_attention_decoder"):
+        with tf.device("/cpu:0"):
+            embedding = tf.get_variable("embedding", [num_symbols, embedding_size])
 
         # TODO replace _extract_argmax_and_embed with sample and embed ideally multiple times
         # implement switch use_inputs, feed_previous, sample
-        loop_function = _extract_argmax_and_embed(embedding, output_projection, 
-                update_embedding_for_previous) if feed_previous else None
+        loop_function = _extract_argmax_and_embed(embedding, output_projection, update_embedding_for_previous) \
+                            if feed_previous else None
     emb_inp = [
-        embedding_ops.embedding_lookup(embedding, i) for i in decoder_inputs]
-    return tensorflow.python.ops.seq2seq.attention_decoder(
+        tf.nn.embedding_lookup(embedding, i) for i in decoder_inputs]
+    # FIXME how to use atten_length > 1 internally it uses conv2d, how to use it
+    return tf.nn.seq2seq.attention_decoder(
         emb_inp, initial_state, attention_states, cell, output_size=output_size,
         num_heads=num_heads, loop_function=loop_function,
         initial_state_attention=initial_state_attention)
 
 
-class E2E_property_decoding():
+def lengths2mask2d(lengths, max_len):
+    batch_size = lengths.get_shape().as_list()[0]
+    # Filled the row of 2d array with lengths
+    lengths_transposed = tf.expand_dims(lengths, 1)
+    lengths_tiled = tf.tile(lengths_transposed, [1, max_len])
 
+    # Filled the rows of 2d array 0, 1, 2,..., max_len ranges 
+    rng = tf.to_int64(tf.range(0, max_len, 1))
+    range_row = tf.expand_dims(rng, 0)
+    range_tiled = tf.tile(range_row, [batch_size, 1])
+
+    # Use the logical operations to create a mask
+    return tf.to_float(tf.less(range_tiled, lengths_tiled))
+
+
+class FastComp():
+    '''Dummy class just for debugging training loop - it compiles fast.'''
     def __init__(self, config):
-        c = config  # shortcut as it is used heavily
-        single_cell = tf.nn.rnn_cell.GRUCell(c.encoder_size)
-        encoder_cell = tf.nn.rnn_cell.MultiRNNCell([single_cell] * c.encoder_layers) if c.encoder_layers > 1 else single_cell
-        single_cell = tf.nn.rnn_cell.GRUCell(c.decoder_size)
-        decoder_cell = tf.nn.rnn_cell.MultiRNNCell([single_cell] * c.decoder_layers) if c.decoder_layers > 1 else single_cell
+        self.dummy_var = tf.Variable([1, 2, 3])
+        self.dec_targets = 'tf.shareholder'
+        self.decoder_lengths = 'tf.shareholder'
+        self.turn_len = 'tf.shareholder'
+        self.is_first_turn = 'tf.shareholder'
+        self.feat_list = [tf.placeholder(tf.int64, shape=(1, 1), name='words')] + [tf.placeholder(tf.int64, shape=(1, 1), name='slots_indicators{}'.format(i)) for i in [1, 2, 3, 4]]
 
-        logger.info('Compiling %s', self.__class__.__name__)
-        logger.info('FIXME NOT USING BATCHES')
-        logger.info('FIXME NOT Storing data to graph. Inspired by "Preload data" section in https://www.tensorflow.org/versions/r0.7/how_tos/reading_data/index.html')
+    def train_step(self, session, input_feed_dict, labels_dict, log_output=False):
+        return ({'x': 1}, 666, -666)
 
-        logger.debug('For each word_i from i in 1..max_turn_len there is a list of features: word, belongs2slot1, belongs2slot2, ..., belongs2slotK')
+    def decode_step(self, session, input_feed_dict):
+        return [0, 0, 0]
 
-        logger.debug('Feature list uses placelhoder.name to create feed dictionary')
-        logger.debug('Words are the most important features')
-        self.feat_list = feat_list = [tf.placeholder(tf.int64, shape=(batch_size, c.max_turn_len), name='words')]
-        logger.debug('Indicators if a word belong to a slot - like abstraction - densify data')
-        for i in range(c.num_slots):
-            feat = tf.placeholder(tf.int64, shape=(batch_size, c.max_turn_len), name='slots_indicators{}'.format(i))
-            feat_list.append(feat)
-        logger.debug('Another feature for each word we have speaker id')
-        feat_list.append(tf.placeholder(tf.int64, shape=(batch_size, c.max_turn_len)))
+    def eval_step(self, session, input_feed_dict, labels_dict):
+        return (666, [0, 0, 0], -666)
 
-        self.turn_len = turn_len = tf.placeholder(tf.int64, shape=(batch_size,))
-        input_mask = lengths2mask2d(self.turn_len)
-
-        logger.debug('The decoder uses special token GO_ID as first input. Adding to vocabulary.')
-        self.GO_ID = len(c.input_vocabs[0])
-        self.goid = tf.constant(self.GO_ID)
-        self.decoder_inputs = tf.placeholder(tf.int64, shape=(batch_size, c.max_target_len))
-        goid_batch_vec = tf.constant([self.GO_ID] * c.batch_size, shape=(batch_size, 1))
-        logger.debug('Adding GO_ID at the beggining of each decoder input')
-        decoder_inputs = tf.concat(1, [goid_batch_vec, self.decoder_inputs])
-
-        self.decoder_lengths = dec_lens = tf.placeholder(tf.int64, shape=(batch_size,))
-
-        self.dropout_keep_prob = drop_keep_prob = tf.placeholder('float')
-        self.dropout_db_keep_prob = drop_db_keep_prob = tf.placeholder('float')
-
-        with tf.variable_scope('encoder') as inpt_scp, elapsed_timer() as inpt_timer:
-            logger.debug('embedded_inputs is a list of size c.max_turn_len with tensors of shape (batch_size, all_feature_size)') 
-
-            feat_embeddings = []
-            for i in range(len(feat_list)):
-                if i == 0:  # words
-                    logger.debug('Increasing the size to fit in the GO_ID id. See above')
-                    voclen = c.words_vocab_len + 1
-                    emb_size = c.word_embed_size
-                else:  # binary features
-                    voclen = 2
-                    emb_size = c.feat_embed_size
-                feat_embeddings.append(tf.get_variable('feat_embedding{}'.format(i), 
-                    initializer=tf.random_uniform([voclen, emb_size], -math.sqrt(3), math.sqrt(3))))
-
-            embedded_inputs = []
-            for j in c.max_turn_len:
-                features_j_word = []
-                for i in len(feat_list):
-                    embedded = tf.nn.embedding_lookup(feat_embeddings[i], feat_list[i][:, j])
-                    dropped_embedded = tf.nn.dropout(embedded, drop_keep_prob)
-                    features_j_word.append(dropped_embedded)
-                logger.debug('For each word and binary features create a tensor with shape (batch_size, sum(all_feat_embeddings_len))')
-                embedded_inputs.append(tf.concat(features_j_word))
-
-            self.is_first_turn = placeholder(tf.bool)
-
-            logger.debug('We get input features for each turn, to represent dialog, we need to store the state between the turns')
-            dialog_state_before_turn = tf.get_variable('dialog_state_before_turn', initializer=encoder_cell, zero_state(c.batch_size))
-            dialog_state_before_turn = control_flow_ops.cond(is_first_turn,
-                                                      lambda: encoder_cell.zero_state(c.batch_size),
-                                                      lambda: tf.assign(dialog_state_before_turn))
-
-            words_hidden_feat, dialog_state_after_turn = tf.nn.rnn(encoder_cell, embedded_inputs, 
-                    initial_state=dialog_state_before_turn, sequence_length=turn_len)
-            dialog_state_before_turn = tf.assign(dialog_state_after_turn)
-
-        with tf.variable_scope('db_encoder') as dec_scp, elapsed_timer() as db_timer:
-            col_embeddings = [tf.get_variable('col_values_embedding{}'.format(i), 
-                initializer=tf.random_uniform([col_vocab_size, c.col_emb_size], -math.sqrt(3), math.sqrt(3))) for col_vocab_size in col_vocab_sizes] 
-
-            self.db_row_initializer = dbi = tf.placeholder(tf.int64, shape=(c.num_rows, c.num_cols))
-            self.db_rows = db_rows = tf.Variable(dbi, trainable=False, collections=[])
-            db_rows_embeddings = []
-            for i in range(c.num_rows):
-                row_embed = [tf.nn.dropou(tf.nn.embedding_lookup(col_embeddings[j], db_rows[i, j]), drop_db_keep_prob) for j in range(c.num_cols)]
-                db_rows_embeddings.append(tf.concat(1, row_embed))
-            # db_rows_embedded = tf.concat(0, db_rows_embeddings)
-
-            # logger.debug('Building word & db_vocab attention started %.2f from DB construction start')
-            # logger.debug('Simple computation because lot of inputs')
-            # assert c.col_emb_size == encoder.hidden_size, 'Otherwise I cannot do scalar product'
-            # words_attributes_distance = []
-            # for w_hid_feat in words_hidden_feat:
-            #     vocab_offset = 0
-            #     for vocab_emb, vocab_size in zip(col_embeddings, col_vocab_sizes):
-            #         for idx in range(vocab_size):
-            #             w_emb = tf.nn.embedding_lookup(vocab_emb, idx)
-            #             wT_times_db_emb_value = tf.matmul(tf.transpose(w_hid_feat), w_emb)
-            #             words_attributes_distance.append(wT_times_db_emb_value)
-            # words_attributes_att = tf.softmax(tf.concat(0, words_attributes_distance))
-            # words_vocab_entries_att = todo_reshape_into_word_TIMES_slot_vocab_TIMES_slot_value
-
-            def select_row(row, encoded_history, reuse=False, scope='select_row'):
-                with tf.variable_scope(scope, reuse=reuse):
-                    inpt = tf.concat(1, [row, encoded_history])
-                    W1 = tf.get_variable('W1', initializer=tf.random_normal([c.col_emb_size, c.mlp_db_l1_size]))
-                    b1 = tf.get_variable('b1', initializer=tf.random_normal([c.mlp_db_l1_size]))
-                    layer1 = tf.nn.relu(tf.add(tf.matmul(inpt, W1), b1))
-
-                    last_layer = layer1
-                    last_layer_size = c.mlp_db_l1_size
-                    Out = tf.get_variable('Out', initializer=tf.random_normal([last_layer_size, 2]))
-                    b_out = tf.get_variable('b_out', initializer=tf.random_normal([2]))
-                    should_be_selected_att = tf.nn.sigmoid(tf.add(tf.matmul(last_layer, Out), b_out))
-                    return should_be_selected_att
-
-            row_selected_arr = []
-            for i, r in enumerate(db_rows_embeddings):
-                reuse = False if i == 0 else True
-                row_selected_arr.append(select_row(r, dialog_state_after_turn))
-
-            row_selected = tf.concat(1, row_selected_arr)
-
-
-        # with tf.variable_scope('decoder') as dec_scp, elapsed_timer() as dec_timer:
-        #     # Take from tf/python/ops/seq2seq.py:706
-        #     # First calculate a concatenation of encoder outputs to put attention on.
-        #     top_states = [array_ops.reshape(e, [-1, 1, cell.output_size])
-        #                   for e in encoder_outputs]
-        #     attention_states = array_ops.concat(1, top_states)
-        #
-        #
-        #     # replace _extract_argmax_and_embed with sample and embed ideally multiple times
-        #     loop_function = _extract_argmax_and_embed(
-        #         embedding, output_projection,
-        #         update_embedding_for_previous) if feed_previous else None
-        #     emb_inp = [
-        #         embedding_ops.embedding_lookup(embedding, i) for i in decoder_inputs]
-        #
-        #
-        #     cell = rnn_cell.OutputProjectionWrapper(cell, c.total_input_vocab_size)
-        #     output_size = c.total_input_vocab_size
-        #
-        #
-        #     # If feed_previous is a Tensor, we construct 2 graphs and use cond.
-        #     def decoder(feed_previous_bool):
-        #         reuse = None if feed_previous_bool else True
-        #         with variable_scope.variable_scope(variable_scope.get_variable_scope(),
-        #                                              reuse=reuse):
-        #
-        #             outputs, state = embedding_attention_decoder(
-        #                 decoder_inputs, encoder_state, attention_states, cell,
-        #                 num_decoder_symbols, embedding_size, num_heads=num_heads,
-        #                 output_size=output_size, output_projection=output_projection,
-        #                 feed_previous=feed_previous_bool,
-        #                 update_embedding_for_previous=False,
-        #                 initial_state_attention=initial_state_attention)
-        #             return outputs + [state]
-        #
-        #     *dec_outputs, dec_state = control_flow_ops.cond(feed_previous,
-        #                                       lambda: decoder(True),
-        #                                       lambda: decoder(False))
-
-        with tf.variable_scope('output') as out_scp, elapsed_timer() as out_timer:
-            pass
-
-
-    def _connect_optimizer(self):
-        self._optimizer = opt = tf.train.GradientDescentOptimizer(self.config.learning_rate)
-        self.global_step = tf.Variable(0, name='global_step', trainable=False)
-        tf.scalar_summary(self.loss.op.name + 'loss', self.loss)
-        self.train_op = opt.minimize(self.loss, global_step=self.global_step)
-
-    @staticmethod
-    def _build_graph(dialog, turn_lens, labels, dropout_keep_prob, c):
-        slu_states = [666] * c.max_dial_len
-        for t in range(c.max_dial_len):
-            # FIXME separate into function
-            reuse_it = True if t > 0 else None
-            with tf.variable_scope('turn_encoder', reuse=reuse_it):
-
-                forward_slu_gru = tf.nn.rnn_cell.GRUCell(c.rnn_size, input_size=c.embedding_size)
-                logger.debug('c.embedding_size: %s', c.embedding_size)
-                logger.debug('dropped_embedded_inputs[0].get_shape(): %s', dropped_embedded_inputs[0].get_shape())
-                with tf.variable_scope('forward_slu'):
-                    outputs, last_slu_state = tf.nn.rnn(
-                        cell=forward_slu_gru,
-                        inputs=dropped_embedded_inputs,
-                        dtype=tf.float32,
-                        sequence_length=turn_lens[:, t])
-                    slu_states[t] = last_slu_state
-
-        masked_turns = tf.to_int64(tf.greater(turn_lens, tf.zeros_like(turn_lens)))
-        logger.debug('masked_turns.get_shape(): %s', masked_turns.get_shape())
-        dial_len = tf.reduce_sum(masked_turns, 1)
-        masked_turnsf = tf.to_float(masked_turns)
-
-        forward_dst_gru = tf.nn.rnn_cell.GRUCell(c.rnn_size, input_size=c.rnn_size)  # FIXME use different rnn_size
-        with tf.variable_scope('dialog_state'):
-                dialog_states, last_dial_state = tf.nn.rnn(
-                    cell=forward_dst_gru,
-                    inputs=slu_states,
-                    dtype=tf.float32,
-                    sequence_length=dial_len)
-        logitss = [444] * c.max_dial_len
-        for t in range(c.max_dial_len):
-            with tf.variable_scope('slot_prediction', reuse=True if t > 0 else None):
-                # FIXME better initialization
-                w_project = tf.get_variable('project2labels', 
-                        initializer=tf.random_uniform([c.rnn_size, c.labels_size], -1.0, 1.0))  # FIXME dynamically change size based on the input not used fixed c.rnn_size
-                logitss[t] = tf.matmul(dialog_states[t], w_project)
-
-        logger.debug('dialog_states[0].get_shape(): %s', dialog_states[0].get_shape())
-        logger.debug('w_project.get_shape(): %s', w_project.get_shape())
-
-        logits = tf.reshape(tf.concat(1, logitss), (np.prod(masked_turns.get_shape().as_list()), c.labels_size)) 
-        logger.debug('logits.get_shape(): %s', logits.get_shape())
-
-        with tf.variable_scope('loss'):
-            logger.debug('labels.get_shape(): %s', labels.get_shape())
-            masked_logits = tf.mul(logits, tf.reshape(masked_turnsf, (np.prod(masked_turnsf.get_shape().as_list()), 1)))
-            logger.debug('masked_logits.get_shape(): %s, masked_logits.dtype %s', masked_logits.get_shape(), masked_logits.dtype)
-            labels_vec = tf.reshape(labels, [-1])
-            xents = tf.nn.sparse_softmax_cross_entropy_with_logits(masked_logits, labels_vec)
-            logger.debug('xents.get_shape(): %s, dtype %s', xents.get_shape(), xents.dtype)
-            loss = tf.reduce_sum(xents) / tf.reduce_sum(masked_turnsf)
-
-        with tf.variable_scope('eval'):
-            predicts = tf.argmax(masked_logits, 1)
-            true_count = tf.reduce_sum(tf.to_int64(tf.equal(predicts, labels_vec)) * tf.reshape(masked_turns, [-1]))
-            num_turns = tf.reduce_sum(dial_len)
-            batch_accuracy = tf.div(tf.to_floa(true_count), tf.to_float(num_turns))
-            logger.debug('true_count.get_shape(): %s', true_count.get_shape())
-        logger.info('trainable variables: %s', '\n'.join([str((v.name, v.get_shape())) for v in tf.trainable_variables()]))
-        return (predicts, loss, num_turns, true_count, batch_accuracy)
-
-    def train_step(self, session, todo_inputs, sample=False):
-        pass
-
-    def eval_step(self, session, todo_inpouts, gold_labels=None):
+    def log(self, name, writer, step_outputs, e, step):
         pass
