@@ -34,8 +34,7 @@ def training(sess, m, train, dev, config, train_writer, dev_writer):
                                  m.decoder_lengths: train.turn_target_lens[i, t],
                                  }
                     input_fd = {m.turn_len: train.turn_lens[i, t],
-                                m.is_first_turn: 1 if t == 0 else 0,
-                    }
+                                m.is_first_turn: 1 if t == 0 else 0, }
                     for k, feat in enumerate(m.feat_list):
                         if k == 0:
                             assert 'words' in feat.name, feat.name
@@ -119,7 +118,6 @@ if __name__ == "__main__":
     c.word_embed_size = c.col_emb_size = 10
     c.mlp_db_l1_size = 6 * c.col_emb_size + c.encoder_size
     c.mlp_db_embed_l1_size = 6 * 10 * c.col_emb_size
-    c.model_name='FastComp'
 
     os.makedirs(os.path.dirname(c.name), exist_ok=True)
     setup_logging(c.log_name)

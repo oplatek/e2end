@@ -42,9 +42,8 @@ class E2E_property_decoding():
         goid_batch_vec = tf.constant([self.GO_ID] * c.batch_size, shape=(c.batch_size, 1), dtype=tf.int64)
         logger.debug('Adding GO_ID at the beggining of each decoder input')
         decoder_inputs2D = [goid_batch_vec] + tf.split(1, c.max_target_len, self.dec_targets)
-        decoder_inputs = [tf.squeeze(di,[1]) for di in decoder_inputs2D]
+        decoder_inputs = [tf.squeeze(di, [1]) for di in decoder_inputs2D]
         logger.debug('decoder_inputs[0:1].get_shape(): %s, %s', decoder_inputs[0].get_shape(), decoder_inputs[1].get_shape())
-
 
         dsingle_cell = tf.nn.rnn_cell.GRUCell(c.num_rows + c.encoder_size + c.encoder_size)
         decoder_cell = tf.nn.rnn_cell.MultiRNNCell(
@@ -238,7 +237,7 @@ class E2E_property_decoding():
     def train_step(self, session, input_feed_dict, labels_dict, log_output=False):
         train_dict = {**input_feed_dict, **labels_dict}
 
-        output_feed = [self.updates,]  # Update Op that does SGD.
+        output_feed = [self.updates, ]  # Update Op that does SGD.
         if log_output:
             output_feed += [self.grad_norm,  # Gradient norm.
                             self.loss]  # Loss for this batch.
