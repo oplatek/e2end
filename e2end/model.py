@@ -228,34 +228,45 @@ class E2E_property_decoding():
             params = tf.trainable_variables()
             gradients = tf.gradients(self.loss, params)
             self.clipped_gradients, self.grad_norm = tf.clip_by_global_norm(gradients, c.max_gradient_norm)
+            tf.histogram_summary(self.clipped_gradients.op.name + 'clip_grad', self.clipped_gradients)
+            tf.histogram_summary(self.grad_norm.op.name + 'grad_norm', self.grad_norm)
             self.updates = opt.apply_gradients(zip(self.clipped_gradients, params), global_step=self.global_step)
             logger.debug('Building the loss function and gradient udpate ops took %.2f s', loss_timer())
+
+        self.summarize = tf.merge_all_summaries()
 
         times = [inpt_timer(), db_timer(), dec_timer(), loss_timer()]
         logger.debug('Blocks times: %s,\n total: %d', times, sum(times))
 
     def train_step(self, session, input_feed_dict, labels_dict, log_output=False):
         train_dict = {**input_feed_dict, **labels_dict}
-
-        output_feed = [self.updates, ]  # Update Op that does SGD.
         if log_output:
-            output_feed += [self.grad_norm,  # Gradient norm.
-                            self.loss]  # Loss for this batch.
-        return session.run(output_feed, train_dict)
+            update_v, grad_norm_v, loss_v, sum_v = session.run([self.update, self.grad_norm, self.loss, self.summarize], train_dict)  
+            return {'update': update_v, 'grad_norm': grad_norm_v, 'loss': loss_v, 'summarize': sum_v}
+        else:
+            session.run(self.update, train_dict)  
+            return {}
 
     def decode_step(self, session, input_feed_dict):
         return session.run(self.dec_outputs, input_feed_dict)
 
     def eval_step(self, session, input_feed_dict, labels_dict):
-        output_feed = self.dec_outputs + [self.loss]
+        output_feed = self.dec_outputs + [self.loss, self.summarize]
         eval_dict = {**input_feed_dict, **labels_dict}
+        targets, lengths = labels_dict[self.dec_targets], labels_dict[self.turn_target_lens]
 
-        *dec_symbols, loss_value = session.run(output_feed, eval_dict)
         property_score = 666  # TODO compare counters todo normalize them
-        return (dec_symbols, loss_value, property_score)
+        *decoder_outs, loss_v, sum_v = session.run(output_feed, eval_dict)
+        reward = self.evaluate(decoder_outs, targets, lengths)
+        return {'decoder_outputs': decoder_outs, 'loss': loss_v, 'summarize': sum_v, 'reward': reward}
 
-    def log(self, name, writer, step_outputs, e, step):
-        print('TODO')
+    def log(self, name, writer, step_outputs, e, step, dstc2_set=None):
+        logger.debug('\nStep log %s\nEpoch %d Step %d' % (name, e, step))
+        for k, v in step_outputs.items():
+            logger.debug('  %s: %s' % (k, v))
+        if dstc2_set is not None and 'decoder_outputs' in step_outputs:
+            out = ' '.join([dstc2_set.get_target_surface(i) for i in step_outputs])
+            logger.debug(out)
 
 
 def embedding_attention_decoder(decoder_inputs, initial_state, attention_states,

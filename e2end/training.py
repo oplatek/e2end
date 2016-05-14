@@ -32,17 +32,18 @@ class EarlyStopper(object):
         return reversed([heapq.heappop(self._heap) for i in range(len(self._heap))])
 
     def save_and_check(self, measure, step, sess):
-        heapq.heappush(self._heap, (measure, step, sess))
-        logger.debug('New measure %f from step %d', measure, step)
-        if len(self._heap) <= self.n_best:
+        if len(self._heap) < self.n_best:
             self._not_improved = 0
+            heapq.heappush(self._heap, (measure, step, sess))
         else:
-            pop_measure, pop_step, _ = heapq.heappop(self._heap)
-            if pop_measure == measure and pop_step ==step:
+            last_measure = self._heap[0][0]
+            if last_measure < measure:
+                heapq.heappop(self._heap)
+                heapq.heappush(self._heap, (measure, step, sess))
+                self._not_improved = 0
+            else:
                 logger.info('Not keeping measure %f from step %d', measure, step)
                 self._not_improved += 1
-            else:
-                self._not_improved = 0
         if self._not_improved == 0:  # we stored the model
             path = self.saver.save(sess, '%s-%.4f-%7d' % (self.saver_prefix, measure, step))
             logger.info('Sess: %f saved to %s', measure, path)

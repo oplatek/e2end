@@ -25,11 +25,12 @@ def training(sess, m, train, dev, config, train_writer, dev_writer):
         dialog_idx = list(range(len(train)))
         logger.info('training set size: %d', len(dialog_idx))
         for e in range(c.epochs):
-            logger.debug('shuffling indexes for next epoch %d', e)
+            logger.debug('\n\nShuffling indexes for next epoch %d', e)
             random.shuffle(dialog_idx)
-            for i in dialog_idx:
-                logger.info('Epoch %d started', i)
+            for d, i in enumerate(dialog_idx):
+                logger.info('\nDialog %d', d)
                 for t in range(train.dial_lens[i]):
+                    logger.info('Step %d', step)
                     labels_dt = {m.dec_targets: train.turn_targets[i, t, :],
                                  m.decoder_lengths: train.turn_target_lens[i, t],
                                  }
@@ -50,8 +51,10 @@ def training(sess, m, train, dev, config, train_writer, dev_writer):
                         step_outputs = m.eval_step(sess, input_fd, labels_dt)
                         dev_acc = step_outputs[0]
                         m.log('dev', dev_writer, step_outputs, e, step)
-                    if not stopper.save_and_check(dev_acc, step, sess):
-                        break
+
+                        if not stopper.save_and_check(dev_acc, step, sess):
+                            raise RuntimeError('Training not improving')
+                    step += 1
     finally:
         stopper.saver.save(sess=sess, save_path='%s-FINAL-STOP-%7d' % (stopper.saver_prefix, step))
         logger.info('Training stopped after %7d steps and %7.2f epochs', step, step / len(train))
@@ -101,7 +104,7 @@ if __name__ == "__main__":
     c.sys_usr_delim = ' SYS_USR_DELIM '
     c.learning_rate = 0.00005
     c.max_gradient_norm = 5.0
-    c.validate_every = 200
+    c.validate_every = 2
     c.train_sample_every = 200
     c.batch_size = 2
     c.dev_batch_size = 1
@@ -157,7 +160,7 @@ if __name__ == "__main__":
 
     with elapsed_timer() as sess_timer, tf.Session() as sess:
         train_writer = tf.train.SummaryWriter(c.train_dir + '/train', sess.graph)
-        dev_writer = tf.train.SummaryWriter(c.train_dir + '/test', sess.graph)
+        dev_writer = tf.train.SummaryWriter(c.train_dir + '/dev', sess.graph)
         logger.debug('Loading session took %.2f', sess_timer())
         training(sess, m, train, dev, c, train_writer, dev_writer)
 
