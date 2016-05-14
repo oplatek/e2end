@@ -12,13 +12,15 @@ from e2end.dataset.dstc2 import Dstc2, Dstc2DB
 import e2end.model
 
 
-def training(sess, m, train, dev, config, train_writer, dev_writer):
+def training(sess, m, db, train, dev, config, train_writer, dev_writer):
     with elapsed_timer() as init_timer:
-        logger.info('Monitor progress by tensorboard:\ntensorboard --logdir "%s"\n', c.train_dir)
         tf.initialize_all_variables().run(session=sess)
 
         stopper = EarlyStopper(c.nbest_models, c.not_change_limit, c.name)
     logger.info('Graph initialized in %.2f s', init_timer())
+
+    logger.info('Load DB data')
+    sess.run(m.db_rows, {m.db_row_initializer: db.table})
 
     try:
         step = 0
@@ -31,17 +33,24 @@ def training(sess, m, train, dev, config, train_writer, dev_writer):
                 logger.info('\nDialog %d', d)
                 for t in range(train.dial_lens[i]):
                     logger.info('Step %d', step)
-                    labels_dt = {m.dec_targets: train.turn_targets[i, t, :],
-                                 m.decoder_lengths: train.turn_target_lens[i, t],
-                                 }
-                    input_fd = {m.turn_len: train.turn_lens[i, t],
-                                m.is_first_turn: 1 if t == 0 else 0, }
+                    assert c.batch_size == 1, 'not doing proper batching'
+                    labels_dt = {m.dec_targets: train.turn_targets[i:i+1, t, :],
+                                 m.decoder_lengths: train.turn_target_lens[i:i+1, t], }
+                    input_fd = {m.turn_len: train.turn_lens[i:i+1, t],
+                                m.is_first_turn: t == 0,
+                                m.dropout_keep_prob: c.dropout,
+                                m.dropout_db_keep_prob: c.db_dropout
+                                }
                     for k, feat in enumerate(m.feat_list):
                         if k == 0:
                             assert 'words' in feat.name, feat.name
-                            input_fd[feat.name] = train.dialogs[i, t, :]
+                            input_fd[feat.name] = x = train.dialogs[i:i+1, t, :]
+                        elif k == len(m.feat_list) - 1:
+                            assert 'speakerId' in feat.name, feat.name
+                            input_fd[feat.name] = train.word_speakers[i:i+1, t, :]
                         else:
-                            input_fd[feat.name] = train.word_entities[i, t, k - 1]
+                            input_fd[feat.name] = train.word_entities[i:i+1, t, k - 1, :]
+
                     m.train_step(sess, input_fd, labels_dt, log_output=False)
                     if step % c.train_sample_every == 0:
                         step_outputs = m.train_step(sess, input_fd, labels_dt, log_output=True)
@@ -65,17 +74,8 @@ def decode(m, dev, step, sess, i, t, dev_writer):
         acc_log = Accumulator(['mean', 'discard', 'activations', 'discard'])
         for di in range(dev):
             for dt in range(dev.dial_lens[i]):
-                feed_dct = {m.dropout_keep_prob: 1.0,
-                            m.new_turn: dev.dialogs[i, t, :],
-                            m.turn_len: dev.turn_lens[i, t],
-                            m.is_first_turn: 1 if t == 0 else 0,
-                            m.attention_mask: dev.att_mask[i, t, :],
-                            m.turn_targets: dev.turn_targets[i, t, :],
-                            m.turn_target_len: dev._turn_target_lens[i, t]}
-            log_vals = sess.run([m.loss, m.predictions, m.att_time_db, m.summarize],
-                                feed_dict=feed_dct)
-            logger.debug(m.log('dev', dev_writer, log_vals))
-            acc_log.add('dev', log_vals)
+                assert c.dev_batch_size == 1, 'not doing proper batching'
+                acc_log.add('dev', ['todo'])
         logger.info('Decoding val set finished after %.2f s', valid_timer())
         agg_log_vals = acc_log.aggregate()
         dev_acc = agg_log_vals['acc']
@@ -106,10 +106,11 @@ if __name__ == "__main__":
     c.max_gradient_norm = 5.0
     c.validate_every = 2
     c.train_sample_every = 200
-    c.batch_size = 2
+    c.batch_size = 1
     c.dev_batch_size = 1
     c.embedding_size=200
     c.dropout = 1.0
+    c.db_dropout = 1.0
     c.rnn_size = 600
     c.feat_embed_size = 2
     c.nbest_models=3
@@ -128,8 +129,6 @@ if __name__ == "__main__":
 
     random.seed(c.seed)
 
-    # m = e2end.model.E2E_property_decoding(c)
-    m = e2end.model.FastComp(c)
     db = Dstc2DB(c.db_file)
     train = Dstc2(c.train_file, db, sample_unk=c.sample_unk, first_n=2 * c.batch_size)
     dev = Dstc2(c.dev_file, db,
@@ -140,10 +139,9 @@ if __name__ == "__main__":
             first_n=2 * c.dev_batch_size)
 
     logger.info('Saving config and vocabularies')
-    c.model_name = m.__class__.__name__
     c.col_vocab_sizes = [len(vocab) for vocab in db.col_vocabs]
     c.max_turn_len = train.max_turn_len
-    c.max_target_len = train.max_turn_len
+    c.max_target_len = train.max_target_len
     c.column_names = db.column_names
     c.num_words = len(train.words_vocab)
     c.num_rows = db.table.shape[0]
@@ -154,14 +152,19 @@ if __name__ == "__main__":
     train.words_vocab.save(c.words_vocab_file)
     for vocab, name in zip(db.col_vocabs, db.column_names):
         vocab.save(c.col_vocab_prefix + name)
+
+    # m = e2end.model.E2E_property_decoding(c)
+    m = e2end.model.FastComp(c)
+
+    c.model_name = m.__class__.__name__
     c.save(c.filename)
 
     logger.info('Model %s compiled and loaded', c.model_name)
+    logger.info('\n\nMonitor progress by tensorboard:\ntensorboard --logdir "%s"\n', c.train_dir)
 
     with elapsed_timer() as sess_timer, tf.Session() as sess:
         train_writer = tf.train.SummaryWriter(c.train_dir + '/train', sess.graph)
         dev_writer = tf.train.SummaryWriter(c.train_dir + '/dev', sess.graph)
         logger.debug('Loading session took %.2f', sess_timer())
-        training(sess, m, train, dev, c, train_writer, dev_writer)
-
+        training(sess, m, db, train, dev, c, train_writer, dev_writer)
         # TODO if decode only load the model parameter and test it

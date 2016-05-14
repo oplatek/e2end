@@ -56,7 +56,7 @@ class Dstc2DB:
             mask = [0] * len(sentence)
             for i, w in enumerate(sentence):
                 for ent in vocab.words():
-                    e = ent.split()
+                    e = ent.strip().split()
                     if w == e[0] and sentence[i:i + len(e)] == e:
                         logger.debug('found an entity %s in %s', ent, sentence)
                         mask[i:i + len(e)] = [1] * len(e)
@@ -67,20 +67,29 @@ class Dstc2DB:
 
 
 class Dstc2:
+    '''
+    Produces input, output labels for each turn.
+    The input is the user AND system utterance from PREVIOUS turn.
+    The output is ONLY system utterance from CURRENT turn.
+
+    As a result for example the first turn has empty input and output the first system response.
+    '''
 
     def __init__(self, filename, db,
             max_turn_len=None, max_dial_len=None, max_target_len=None,
             first_n=None, words_vocab=None, labels_vocab=None, sample_unk=0):
+
         assert isinstance(db, Dstc2DB), type(db)
         self._raw_data = raw_data = json.load(open(filename))
         self._first_n = min(first_n, len(raw_data)) if first_n else len(raw_data)
-        dialogs = [[(turn[0] + turn[1]).split() for turn in dialog] for dialog in raw_data]
+        dialogs = [[(turn[0] + ' ' + turn[1]).strip().split() for turn in dialog] for dialog in raw_data]
         self._speak_vocab = Vocabulary([], extra_words=['usr', 'sys'], unk=None)
         usr, ss = self._speak_vocab.get_i('usr'), self._speak_vocab.get_i('sys')
-        self._word_speakers = speakers = [[[ss] * len(turn[0].split()) + [usr] * len(turn[1].split()) for turn in dialog] for dialog in raw_data]
+        speakers = [[[ss] * len(turn[0].strip().split()) + [usr] * len(turn[1].strip().split()) for turn in dialog] for dialog in raw_data]
+
         labels = [[turn[4] for turn in dialog] for dialog in raw_data]
         assert len(dialogs) == len(labels), '%s vs %s' % (dialogs, labels)
-        targets = [[(turn[0]).split() for turn in dialog] for dialog in raw_data]
+        targets = [[(turn[0]).strip().split() for turn in dialog] for dialog in raw_data]
 
         dialogs, labels, speakers, targets = dialogs[:first_n], labels[:first_n], speakers[:first_n], targets[:first_n]
 
@@ -99,7 +108,7 @@ class Dstc2:
 
         self._turn_lens_per_dialog = np.zeros((len(dialogs), mdl), dtype=np.int64)
         self._dials = np.zeros((len(dialogs), mdl, mtl), dtype=np.int64)
-        self._word_ent = np.zeros((len(dialogs), mdl, mtl, len(db.column_names)), dtype=np.int64)
+        self._word_ent = np.zeros((len(dialogs), mdl, len(db.column_names), mtl), dtype=np.int64)
         self._turn_lens = np.zeros((len(dialogs), mdl), dtype=np.int64)
 
         t = sorted([len(turn_target) for dialog_targets in targets for turn_target in dialog_targets])
@@ -108,6 +117,8 @@ class Dstc2:
         logger.info('Target len: %4d.\nMax target len %4d.\n95-percentil %4d.\n', maxtarl, mtarl, perc95t)
         self._turn_targets = ttarg = np.zeros((len(dialogs), mdl, mtarl), dtype=np.int64)
         self._turn_target_lens = np.zeros((len(dialogs), mdl), dtype=np.int64)
+        self._word_speakers = w_spk = np.zeros((len(dialogs), mdl, mtl), dtype=np.int64)
+
 
         tmp1, tmp2 = db.column_names + ['words'], db.col_vocabs + [words_vocab]
         self._target_vocabs = OrderedDict(zip(tmp1, tmp2))
@@ -119,25 +130,32 @@ class Dstc2:
                 [0] + list(self.word_vocabs_uplimit.values())[:-1]))
 
         dial_lens = []
-        for i, (d, dtargs) in enumerate(zip(dialogs, targets)):
+        for i, (d, dtargs, spks) in enumerate(zip(dialogs, targets, speakers)):
             assert len(d) == len(dtargs)
             dial_len = 0
-            for j, (target, turn) in enumerate(zip(d, dtargs)):
-                word_ids = self._extract_vocab_ids(db, target)
-                if j > mdl or len(turn) > mtl or len(word_ids) > mtarl:  
+            logger.debug('Shifting targets and turns by one. First context is empty turn')
+            d, spks = [] + d, [] + spks
+            for j, (turn, spk, target) in enumerate(zip(d, spks, dtargs)):
+                sys_word_ids = self._extract_vocab_ids(db, target)
+                if j > mdl or len(turn) > mtl or len(sys_word_ids) > mtarl:
                     logger.debug("Keep prefix of turns, discard following turns because:"
                         "a) num_turns too big "
                         "b) current turn too long. "
                         "c) current target too long.")
                     break
-                dial_len = j + 1
+                else:
+                    dial_len += 1
+
+                assert len(turn) == len(spk), str((len(turn), len(spk), turn, spk))
                 self._turn_lens[i, j] = len(turn)
-                self._turn_target_lens[i, j] = len(word_ids)
-                for k, w in enumerate(turn):
+                for k, (w, s_id) in enumerate(zip(turn, spk)):
                     self._dials[i, j, k] = words_vocab.get_i(w, unk_chance_smaller=sample_unk)
+                    w_spk[i, j, k] = s_id
                     for l, e in enumerate(entities[i][j]):
-                        self._word_ent[i, j, k, l] = e[k]
-                for k, w_id in enumerate(word_ids):
+                        self._word_ent[i, j, l, k] = e[k]
+
+                self._turn_target_lens[i, j] = len(sys_word_ids)
+                for k, w_id in enumerate(sys_word_ids):
                     ttarg[i, j, k] = w_id
             if dial_len > 0:
                 dial_lens.append(dial_len)
@@ -160,7 +178,7 @@ class Dstc2:
                 if vocab_name == 'words':
                     continue
                 for ent in vocab.words():
-                    e = ent.split()
+                    e = ent.strip().split()
                     if w == e[0] and target_words[i:i + len(e)] == e:
                         logger.debug('found an entity "%s" from column %s in target_words %s', ent, vocab_name, target_words)
                         skip_words_of_entity = len(e)

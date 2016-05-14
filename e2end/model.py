@@ -12,10 +12,38 @@ logger.setLevel(logging.DEBUG)
 
 
 class E2E_property_decoding():
+
+    def _define_inputs(self, c):
+        self.db_row_initializer = tf.placeholder(tf.int64, shape=(c.num_rows, c.num_cols))
+        self.db_rows = tf.Variable(self.db_row_initializer, trainable=False, collections=[])
+
+        self.turn_len = tf.placeholder(tf.int64, shape=(c.batch_size,), name='turn_len')
+
+        logger.debug('Words are the most important features')
+        self.feat_list = feat_list = [tf.placeholder(tf.int64, shape=(c.batch_size, c.max_turn_len), name='words')]
+        logger.debug('Indicators if a word belong to a slot - like abstraction - densify data')
+        for i, n in enumerate(c.column_names):
+            feat = tf.placeholder(tf.int64, shape=(c.batch_size, c.max_turn_len), name='slots_indicators{}-{}'.format(i, n))
+            feat_list.append(feat)
+        logger.debug('Another feature for each word we have speaker id')
+        self.speakerId = tf.placeholder(tf.int64, shape=(c.batch_size, c.max_turn_len), name='speakerId')
+        feat_list.append(self.speakerId)
+
+        self.dropout_keep_prob = tf.placeholder('float')
+        self.dropout_db_keep_prob = tf.placeholder('float')
+
+        self.is_first_turn = tf.placeholder(tf.bool)
+        self.feed_previous = tf.placeholder(tf.bool)
+
+        self.dec_targets = tf.placeholder(tf.int64, shape=(c.batch_size, c.max_target_len))
+        self.decoder_lengths = tf.placeholder(tf.int64, shape=(c.batch_size,))
+
+
     def __init__(self, config):
         c = config  # shortcut as it is used heavily
-
         logger.info('Compiling %s', self.__class__.__name__)
+
+        self._define_inputs(c)
 
         logger.debug('For each word_i from i in 1..max_turn_len there is a list of features: word, belongs2slot1, belongs2slot2, ..., belongs2slotK')
         logger.debug('Feature list uses placelhoder.name to create feed dictionary')
@@ -24,21 +52,9 @@ class E2E_property_decoding():
         encoder_cell = tf.nn.rnn_cell.MultiRNNCell(
             [esingle_cell] * c.encoder_layers) if c.encoder_layers > 1 else esingle_cell
 
-        logger.debug('Words are the most important features')
-        self.feat_list = feat_list = [tf.placeholder(tf.int64, shape=(c.batch_size, c.max_turn_len), name='words')]
-        logger.debug('Indicators if a word belong to a slot - like abstraction - densify data')
-        for i, _ in enumerate(c.column_names):
-            feat = tf.placeholder(tf.int64, shape=(c.batch_size, c.max_turn_len), name='slots_indicators{}'.format(i))
-            feat_list.append(feat)
-        logger.debug('Another feature for each word we have speaker id')
-        feat_list.append(tf.placeholder(tf.int64, shape=(c.batch_size, c.max_turn_len)))
-
-        self.turn_len = turn_len = tf.placeholder(tf.int64, shape=(c.batch_size,))
-
         logger.debug('The decoder uses special token GO_ID as first input. Adding to vocabulary.')
         self.GO_ID = c.num_words
         self.goid = tf.constant(self.GO_ID)
-        self.dec_targets = tf.placeholder(tf.int64, shape=(c.batch_size, c.max_target_len))
         goid_batch_vec = tf.constant([self.GO_ID] * c.batch_size, shape=(c.batch_size, 1), dtype=tf.int64)
         logger.debug('Adding GO_ID at the beggining of each decoder input')
         decoder_inputs2D = [goid_batch_vec] + tf.split(1, c.max_target_len, self.dec_targets)
@@ -48,22 +64,15 @@ class E2E_property_decoding():
         dsingle_cell = tf.nn.rnn_cell.GRUCell(c.num_rows + c.encoder_size + c.encoder_size)
         decoder_cell = tf.nn.rnn_cell.MultiRNNCell(
             [dsingle_cell] * c.decoder_layers) if c.decoder_layers > 1 else dsingle_cell
-        self.decoder_lengths = dec_lens = tf.placeholder(tf.int64, shape=(c.batch_size,))
-        target_mask = [tf.squeeze(m, [1]) for m in tf.split(1, c.max_target_len, lengths2mask2d(dec_lens, c.max_target_len))]
+        target_mask = [tf.squeeze(m, [1]) for m in tf.split(1, c.max_target_len, lengths2mask2d(self.decoder_lengths, c.max_target_len))]
 
-        self.dropout_keep_prob = drop_keep_prob = tf.placeholder('float')
-        self.dropout_db_keep_prob = drop_db_keep_prob = tf.placeholder('float')
-
-        self.is_first_turn = tf.placeholder(tf.bool)
-        self.db_row_initializer = dbi = tf.placeholder(tf.int64, shape=(c.num_rows, c.num_cols))
-        self.feed_previous = tf.placeholder(tf.bool)
 
         with tf.variable_scope('encoder'), elapsed_timer() as inpt_timer:
             logger.debug(
                 'embedded_inputs is a list of size c.max_turn_len with tensors of shape (batch_size, all_feature_size)')
 
             feat_embeddings = []
-            for i in range(len(feat_list)):
+            for i in range(len(self.feat_list)):
                 if i == 0:  # words
                     logger.debug('Increasing the size to fit in the GO_ID id. See above')
                     voclen = c.num_words + 1
@@ -78,9 +87,9 @@ class E2E_property_decoding():
             embedded_inputs = []
             for j in range(c.max_turn_len):
                 features_j_word = []
-                for i in range(len(feat_list)):
-                    embedded = tf.nn.embedding_lookup(feat_embeddings[i], feat_list[i][:, j])
-                    dropped_embedded = tf.nn.dropout(embedded, drop_keep_prob)
+                for i in range(len(self.feat_list)):
+                    embedded = tf.nn.embedding_lookup(feat_embeddings[i], self.feat_list[i][:, j])
+                    dropped_embedded = tf.nn.dropout(embedded, self.dropout_keep_prob)
                     features_j_word.append(dropped_embedded)
                 w_features = tf.concat(1, features_j_word)
                 j or logger.debug('Word features has shape (batch, concat_embs) == %s', w_features.get_shape())
@@ -97,7 +106,7 @@ class E2E_property_decoding():
             logger.debug('Initialization of encoder inputs and control flow took  %.2f s.', inpt_timer())
             words_hidden_feat, dialog_state_after_turn = tf.nn.rnn(encoder_cell, embedded_inputs,
                                                                    initial_state=dialog_state_before_turn,
-                                                                   sequence_length=turn_len)
+                                                                   sequence_length=self.turn_len)
             dialog_state_before_acc = tf.assign(dialog_state_before_acc, dialog_state_after_turn)
 
         with tf.variable_scope('db_encoder'), elapsed_timer() as db_timer:
@@ -106,11 +115,10 @@ class E2E_property_decoding():
                                                                             -math.sqrt(3), math.sqrt(3))) for
                               i, col_vocab_size in enumerate(c.col_vocab_sizes)]
 
-            self.db_rows = db_rows = tf.Variable(dbi, trainable=False, collections=[])
             db_rows_embeddings = []
             for i in range(c.num_rows):
                 row_embed_arr = [
-                    tf.nn.dropout(tf.nn.embedding_lookup(col_embeddings[j], db_rows[i, j]), drop_db_keep_prob) for j in
+                    tf.nn.dropout(tf.nn.embedding_lookup(col_embeddings[j], self.db_rows[i, j]), self.dropout_db_keep_prob) for j in
                     range(c.num_cols)]
                 row_embed = tf.concat(0, row_embed_arr)
                 i or logger.debug('row_embed_arr is list of different [%s] * %d', row_embed_arr[0].get_shape(),
@@ -228,7 +236,6 @@ class E2E_property_decoding():
             params = tf.trainable_variables()
             gradients = tf.gradients(self.loss, params)
             self.clipped_gradients, self.grad_norm = tf.clip_by_global_norm(gradients, c.max_gradient_norm)
-            tf.histogram_summary(self.clipped_gradients.op.name + 'clip_grad', self.clipped_gradients)
             tf.histogram_summary(self.grad_norm.op.name + 'grad_norm', self.grad_norm)
             self.updates = opt.apply_gradients(zip(self.clipped_gradients, params), global_step=self.global_step)
             logger.debug('Building the loss function and gradient udpate ops took %.2f s', loss_timer())
@@ -236,15 +243,15 @@ class E2E_property_decoding():
         self.summarize = tf.merge_all_summaries()
 
         times = [inpt_timer(), db_timer(), dec_timer(), loss_timer()]
-        logger.debug('Blocks times: %s,\n total: %d', times, sum(times))
+        logger.debug('Blocks times: %s,\n total: %.2f', times, sum(times))
 
     def train_step(self, session, input_feed_dict, labels_dict, log_output=False):
         train_dict = {**input_feed_dict, **labels_dict}
         if log_output:
-            update_v, grad_norm_v, loss_v, sum_v = session.run([self.update, self.grad_norm, self.loss, self.summarize], train_dict)  
-            return {'update': update_v, 'grad_norm': grad_norm_v, 'loss': loss_v, 'summarize': sum_v}
+            updates_v, grad_norm_v, loss_v, sum_v = session.run([self.updates, self.grad_norm, self.loss, self.summarize], train_dict)
+            return {'grad_norm': grad_norm_v, 'loss': loss_v, 'summarize': sum_v}
         else:
-            session.run(self.update, train_dict)  
+            session.run(self.updates, train_dict)
             return {}
 
     def decode_step(self, session, input_feed_dict):
@@ -385,20 +392,23 @@ def lengths2mask2d(lengths, max_len):
     return tf.to_float(tf.less(range_tiled, lengths_tiled))
 
 
-class FastComp():
+class FastComp(E2E_property_decoding):
     '''Dummy class just for debugging training loop - it compiles fast.'''
     def __init__(self, config):
-        self.dummy_var = tf.Variable([1, 2, 3])
-        self.dec_targets = 'tf.shareholder'
-        self.decoder_lengths = 'tf.shareholder'
-        self.turn_len = 'tf.shareholder'
-        self.is_first_turn = 'tf.shareholder'
-        self.feat_list = [tf.placeholder(tf.int64, shape=(1, 1), name='words')] + [tf.placeholder(tf.int64, shape=(1, 1), name='slots_indicators{}'.format(i)) for i in [1, 2, 3, 4]]
+        self.var2save = tf.Variable([1])
+        self._define_inputs(config)
 
     def train_step(self, session, input_feed_dict, labels_dict, log_output=False):
-        return ({'x': 1}, 666, -666)
+        train_dict = {**input_feed_dict, **labels_dict}
+        session.run([self.db_rows, self.dropout_db_keep_prob], train_dict)
+        print('input_feed_dict', input_feed_dict)
+        print('input_feed_dict_shape', [(k, v.shape) if hasattr(v, 'shape') else (k, v) for k, v in input_feed_dict.items()])
+        print('\nlabels_dict', labels_dict)
+        print('labels_dict', [(k, v.shape) if hasattr(v, 'shape') else (k, v) for k, v in labels_dict.items()])
+        return
 
     def decode_step(self, session, input_feed_dict):
+        print('input_feed_dict', input_feed_dict)
         return [0, 0, 0]
 
     def eval_step(self, session, input_feed_dict, labels_dict):
