@@ -273,9 +273,11 @@ class E2E_property_decoding():
         return -666
 
     def log(self, name, writer, step_outputs, e, step, dstc2_set=None):
+        writer.add_summary(step_outputs['summarize'], e)
+
         logger.debug('\nStep log %s\nEpoch %d Step %d' % (name, e, step))
         for k, v in step_outputs.items():
-            if k == 'decoder_outputs':
+            if k == 'decoder_outputs' or k == 'summarize':
                 continue
             logger.debug('  %s: %s' % (k, v))
 
