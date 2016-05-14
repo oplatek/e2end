@@ -246,7 +246,8 @@ class E2E_property_decoding():
         logger.debug('Blocks times: %s,\n total: %.2f', times, sum(times))
 
     def train_step(self, session, input_feed_dict, labels_dict, log_output=False):
-        train_dict = {**input_feed_dict, **labels_dict}
+        train_dict = input_feed_dict.copy()
+        train_dict.update(labels_dict)
         if log_output:
             updates_v, grad_norm_v, loss_v, sum_v = session.run([self.updates, self.grad_norm, self.loss, self.summarize], train_dict)
             return {'grad_norm': grad_norm_v, 'loss': loss_v, 'summarize': sum_v}
@@ -259,7 +260,8 @@ class E2E_property_decoding():
 
     def eval_step(self, session, input_feed_dict, labels_dict):
         output_feed = self.dec_outputs + [self.loss, self.summarize]
-        eval_dict = {**input_feed_dict, **labels_dict}
+        eval_dict = input_feed_dict.copy()
+        eval_dict.update(labels_dict)
         targets, lengths = labels_dict[self.dec_targets], labels_dict[self.turn_target_lens]
 
         property_score = 666  # TODO compare counters todo normalize them
@@ -399,7 +401,8 @@ class FastComp(E2E_property_decoding):
         self._define_inputs(config)
 
     def train_step(self, session, input_feed_dict, labels_dict, log_output=False):
-        train_dict = {**input_feed_dict, **labels_dict}
+        train_dict = input_feed_dict.copy()
+        train_dict.update(labels_dict)
         session.run([self.db_rows, self.dropout_db_keep_prob], train_dict)
         print('input_feed_dict', input_feed_dict)
         print('input_feed_dict_shape', [(k, v.shape) if hasattr(v, 'shape') else (k, v) for k, v in input_feed_dict.items()])
