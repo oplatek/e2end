@@ -20,7 +20,7 @@ def training(sess, m, db, train, dev, config, train_writer, dev_writer):
     logger.info('Graph initialized in %.2f s', init_timer())
 
     logger.info('Load DB data')
-    sess.run(m.db_rows, {m.db_row_initializer: db.table})
+    sess.run(m.db_rows.initializer, {m.db_row_initializer: db.table})
 
     try:
         step = 0
@@ -33,13 +33,14 @@ def training(sess, m, db, train, dev, config, train_writer, dev_writer):
                 logger.info('\nDialog %d', d)
                 for t in range(train.dial_lens[i]):
                     logger.info('Step %d', step)
-                    assert c.batch_size == 1, 'not doing proper batching'
+                    assert c.batch_size == 1, 'FIXME not doing proper batching'  # FIXME
                     labels_dt = {m.dec_targets: train.turn_targets[i:i+1, t, :],
-                                 m.decoder_lengths: train.turn_target_lens[i:i+1, t], }
+                                 m.target_lens: train.turn_target_lens[i:i+1, t], }
                     input_fd = {m.turn_len: train.turn_lens[i:i+1, t],
                                 m.is_first_turn: t == 0,
                                 m.dropout_keep_prob: c.dropout,
-                                m.dropout_db_keep_prob: c.db_dropout
+                                m.dropout_db_keep_prob: c.db_dropout,
+                                m.feed_previous: True,
                                 }
                     for k, feat in enumerate(m.feat_list):
                         if k == 0:
@@ -58,10 +59,9 @@ def training(sess, m, db, train, dev, config, train_writer, dev_writer):
 
                     if step % c.validate_every == 0:
                         step_outputs = m.eval_step(sess, input_fd, labels_dt)
-                        dev_acc = step_outputs[0]
                         m.log('dev', dev_writer, step_outputs, e, step)
 
-                        if not stopper.save_and_check(dev_acc, step, sess):
+                        if not stopper.save_and_check(step_outputs['loss'], step, sess):
                             raise RuntimeError('Training not improving')
                     step += 1
     finally:
@@ -153,8 +153,8 @@ if __name__ == "__main__":
     for vocab, name in zip(db.col_vocabs, db.column_names):
         vocab.save(c.col_vocab_prefix + name)
 
-    # m = e2end.model.E2E_property_decoding(c)
-    m = e2end.model.FastComp(c)
+    m = e2end.model.E2E_property_decoding(c)
+    # m = e2end.model.FastComp(c)
 
     c.model_name = m.__class__.__name__
     c.save(c.filename)

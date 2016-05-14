@@ -14,8 +14,8 @@ logger.setLevel(logging.DEBUG)
 class E2E_property_decoding():
 
     def _define_inputs(self, c):
-        self.db_row_initializer = tf.placeholder(tf.int64, shape=(c.num_rows, c.num_cols))
-        self.db_rows = tf.Variable(self.db_row_initializer, trainable=False, collections=[])
+        self.db_row_initializer = tf.placeholder(tf.int64, shape=(c.num_rows, c.num_cols), name='row_initializer')
+        self.db_rows = tf.Variable(self.db_row_initializer, trainable=False, collections=[], name='db_rows')
 
         self.turn_len = tf.placeholder(tf.int64, shape=(c.batch_size,), name='turn_len')
 
@@ -29,14 +29,14 @@ class E2E_property_decoding():
         self.speakerId = tf.placeholder(tf.int64, shape=(c.batch_size, c.max_turn_len), name='speakerId')
         feat_list.append(self.speakerId)
 
-        self.dropout_keep_prob = tf.placeholder('float')
-        self.dropout_db_keep_prob = tf.placeholder('float')
+        self.dropout_keep_prob = tf.placeholder('float', name='dropout_keep_prob')
+        self.dropout_db_keep_prob = tf.placeholder('float', name='dropout_db_keep_prob')
 
-        self.is_first_turn = tf.placeholder(tf.bool)
-        self.feed_previous = tf.placeholder(tf.bool)
+        self.is_first_turn = tf.placeholder(tf.bool, name='is_first_turn')
+        self.feed_previous = tf.placeholder(tf.bool, name='feed_previous')
 
-        self.dec_targets = tf.placeholder(tf.int64, shape=(c.batch_size, c.max_target_len))
-        self.decoder_lengths = tf.placeholder(tf.int64, shape=(c.batch_size,))
+        self.dec_targets = tf.placeholder(tf.int64, shape=(c.batch_size, c.max_target_len), name='dec_targets')
+        self.target_lens = tf.placeholder(tf.int64, shape=(c.batch_size,), name='decoder_lengths')
 
 
     def __init__(self, config):
@@ -64,7 +64,7 @@ class E2E_property_decoding():
         dsingle_cell = tf.nn.rnn_cell.GRUCell(c.num_rows + c.encoder_size + c.encoder_size)
         decoder_cell = tf.nn.rnn_cell.MultiRNNCell(
             [dsingle_cell] * c.decoder_layers) if c.decoder_layers > 1 else dsingle_cell
-        target_mask = [tf.squeeze(m, [1]) for m in tf.split(1, c.max_target_len, lengths2mask2d(self.decoder_lengths, c.max_target_len))]
+        target_mask = [tf.squeeze(m, [1]) for m in tf.split(1, c.max_target_len, lengths2mask2d(self.target_lens, c.max_target_len))]
 
 
         with tf.variable_scope('encoder'), elapsed_timer() as inpt_timer:
@@ -262,19 +262,25 @@ class E2E_property_decoding():
         output_feed = self.dec_outputs + [self.loss, self.summarize]
         eval_dict = input_feed_dict.copy()
         eval_dict.update(labels_dict)
-        targets, lengths = labels_dict[self.dec_targets], labels_dict[self.turn_target_lens]
+        targets, target_lens = labels_dict[self.dec_targets], labels_dict[self.target_lens]
 
         property_score = 666  # TODO compare counters todo normalize them
         *decoder_outs, loss_v, sum_v = session.run(output_feed, eval_dict)
-        reward = self.evaluate(decoder_outs, targets, lengths)
+        reward = self.evaluate(decoder_outs, targets, target_lens)
         return {'decoder_outputs': decoder_outs, 'loss': loss_v, 'summarize': sum_v, 'reward': reward}
+
+    def evaluate(self, outputs, targets, target_lens):
+        return -666
 
     def log(self, name, writer, step_outputs, e, step, dstc2_set=None):
         logger.debug('\nStep log %s\nEpoch %d Step %d' % (name, e, step))
         for k, v in step_outputs.items():
+            if k == 'decoder_outputs':
+                continue
             logger.debug('  %s: %s' % (k, v))
+
         if dstc2_set is not None and 'decoder_outputs' in step_outputs:
-            out = ' '.join([dstc2_set.get_target_surface(i) for i in step_outputs])
+            out = ' '.join([dstc2_set.get_target_surface(i) for i in step_outputs['decoder_outputs']])
             logger.debug(out)
 
 
@@ -397,13 +403,20 @@ def lengths2mask2d(lengths, max_len):
 class FastComp(E2E_property_decoding):
     '''Dummy class just for debugging training loop - it compiles fast.'''
     def __init__(self, config):
-        self.var2save = tf.Variable([1])
+        self._var2save = tf.Variable([1])
+
         self._define_inputs(config)
+        arr = [
+                  self.turn_len, self.dec_targets, self.target_lens,
+                  self.is_first_turn, self.feed_previous,
+                  self.dropout_keep_prob, self.dropout_db_keep_prob,
+              ] + self.feat_list
+        self.testTrainOp = tf.concat(0, [tf.to_float(tf.reshape(x, (-1, 1))) for x in arr])
 
     def train_step(self, session, input_feed_dict, labels_dict, log_output=False):
         train_dict = input_feed_dict.copy()
         train_dict.update(labels_dict)
-        session.run([self.db_rows, self.dropout_db_keep_prob], train_dict)
+        session.run(self.testTrainOp, train_dict)
         print('input_feed_dict', input_feed_dict)
         print('input_feed_dict_shape', [(k, v.shape) if hasattr(v, 'shape') else (k, v) for k, v in input_feed_dict.items()])
         print('\nlabels_dict', labels_dict)
