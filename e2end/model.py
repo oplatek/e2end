@@ -38,7 +38,6 @@ class E2E_property_decoding():
         self.dec_targets = tf.placeholder(tf.int64, shape=(c.batch_size, c.max_target_len), name='dec_targets')
         self.target_lens = tf.placeholder(tf.int64, shape=(c.batch_size,), name='decoder_lengths')
 
-
     def __init__(self, config):
         c = config  # shortcut as it is used heavily
         logger.info('Compiling %s', self.__class__.__name__)
@@ -65,7 +64,6 @@ class E2E_property_decoding():
         decoder_cell = tf.nn.rnn_cell.MultiRNNCell(
             [dsingle_cell] * c.decoder_layers) if c.decoder_layers > 1 else dsingle_cell
         target_mask = [tf.squeeze(m, [1]) for m in tf.split(1, c.max_target_len, lengths2mask2d(self.target_lens, c.max_target_len))]
-
 
         with tf.variable_scope('encoder'), elapsed_timer() as inpt_timer:
             logger.debug(
@@ -171,7 +169,7 @@ class E2E_property_decoding():
 
             weighted_rows = [tf.mul(w, r) for w, r in zip(batched_db_rows_embeddings, row_selected_arr)]
             logger.debug('weigthed_rows[0].get_shape() %s', weighted_rows[0].get_shape())
-            db_embed_inputs = tf.concat(1, weighted_rows)
+            db_embed_inputs = tf.concat(1, weighted_rows + [dialog_state_after_turn])
             logger.debug('db_embed_inputs.get_shape() %s', db_embed_inputs.get_shape())
 
             input_len = db_embed_inputs.get_shape().as_list()[1]
@@ -183,6 +181,7 @@ class E2E_property_decoding():
             WOutDb = tf.get_variable('WOutDb', initializer=tf.random_normal([c.mlp_db_embed_l1_size, out_size]))
             BOutDb = tf.get_variable('BOutDb', initializer=tf.random_normal([out_size]))
             db_embed = tf.nn.xw_plus_b(l1, WOutDb, BOutDb)
+# FIXME try to interpret the output of the DB ege again as attention
             logger.debug('db_embed.get_shape() %s', db_embed.get_shape())
 
         with tf.variable_scope('decoder'), elapsed_timer() as dec_timer:
@@ -230,14 +229,16 @@ class E2E_property_decoding():
             # TODO load reward and implement mixer
             logger.debug('decoder_inputs are targets shifted by one')
             self.loss = tf.nn.seq2seq.sequence_loss(dec_outputs[1:], decoder_inputs[1:], target_mask, softmax_loss_function=None)
-            self._optimizer = opt = tf.train.GradientDescentOptimizer(c.learning_rate)
+            self._optimizer = opt = tf.train.AdamOptimizer(c.learning_rate)
             self.global_step = tf.Variable(0, name='global_step', trainable=False)
             tf.scalar_summary(self.loss.op.name + 'loss', self.loss)
             params = tf.trainable_variables()
-            gradients = tf.gradients(self.loss, params)
-            self.clipped_gradients, self.grad_norm = tf.clip_by_global_norm(gradients, c.max_gradient_norm)
-            tf.histogram_summary(self.grad_norm.op.name + 'grad_norm', self.grad_norm)
-            self.updates = opt.apply_gradients(zip(self.clipped_gradients, params), global_step=self.global_step)
+            gradients = opt.compute_gradients(self.loss, params)
+
+            # TODO visualize gradients on inputs, rows or whereever needed
+            modified_grads = gradients
+
+            self.updates = opt.apply_gradients(modified_grads, global_step=self.global_step)
             logger.debug('Building the loss function and gradient udpate ops took %.2f s', loss_timer())
 
         self.summarize = tf.merge_all_summaries()
@@ -249,8 +250,8 @@ class E2E_property_decoding():
         train_dict = input_feed_dict.copy()
         train_dict.update(labels_dict)
         if log_output:
-            updates_v, grad_norm_v, loss_v, sum_v = session.run([self.updates, self.grad_norm, self.loss, self.summarize], train_dict)
-            return {'grad_norm': grad_norm_v, 'loss': loss_v, 'summarize': sum_v}
+            updates_v, loss_v, sum_v = session.run([self.updates, self.loss, self.summarize], train_dict)
+            return {'loss': loss_v, 'summarize': sum_v}
         else:
             session.run(self.updates, train_dict)
             return {}
@@ -264,7 +265,6 @@ class E2E_property_decoding():
         eval_dict.update(labels_dict)
         targets, target_lens = labels_dict[self.dec_targets], labels_dict[self.target_lens]
 
-        property_score = 666  # TODO compare counters todo normalize them
         *decoder_outs, loss_v, sum_v = session.run(output_feed, eval_dict)
         reward = self.evaluate(decoder_outs, targets, target_lens)
         return {'decoder_outputs': decoder_outs, 'loss': loss_v, 'summarize': sum_v, 'reward': reward}
@@ -273,7 +273,8 @@ class E2E_property_decoding():
         return -666
 
     def log(self, name, writer, step_outputs, e, step, dstc2_set=None):
-        writer.add_summary(step_outputs['summarize'], e)
+        if 'summarize' in step_outputs:
+            writer.add_summary(step_outputs['summarize'], e)
 
         logger.debug('\nStep log %s\nEpoch %d Step %d' % (name, e, step))
         for k, v in step_outputs.items():
