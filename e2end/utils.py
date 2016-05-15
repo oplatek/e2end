@@ -87,3 +87,12 @@ def elapsed_timer():
     elapser = running_elapser
     yield lambda: elapser()
     finished_at, elapser = default_timer(), finished_elapser
+
+
+def launch_tensorboard(logdir, stdout, stderr=subprocess.STDOUT):
+    '''Launch tensorboard in separate process'''
+    if isinstance(stdout, str):
+        stdout = open(stdout, 'w')
+    tensorboard_cmd = 'tensorboard --logdir "%s"' % logdir
+    process = subprocess.Popen(tensorboard_cmd, shell=True, stdout=stdout, stderr=stderr)
+    logger.info('\n\nTensorboard launched in background: %s\nTry the defaut port 6006\nThe spawn shell has PID: %d', tensorboard_cmd, process.pid)

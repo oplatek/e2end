@@ -45,6 +45,6 @@ class EarlyStopper(object):
                 logger.info('Not keeping reward %f from step %d', reward, step)
                 self._not_improved += 1
         if self._not_improved == 0:  # we stored the model
-            path = self.saver.save(sess, '%s-reward-%.4f-step-%7d' % (self.saver_prefix, reward, step))
+            path = self.saver.save(sess, '%s-reward-%.4f-step-%07d' % (self.saver_prefix, reward, step))
             logger.info('Sess: %f saved to %s', reward, path)
         return self._not_improved <= self.not_change_limit

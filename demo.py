@@ -6,7 +6,7 @@ Training script for end2end dialog training.
 """
 import logging, uuid, random, os, argparse
 import tensorflow as tf
-from e2end.utils import Config, git_info, setup_logging, Accumulator, elapsed_timer
+from e2end.utils import Config, git_info, setup_logging, Accumulator, elapsed_timer, launch_tensorboard
 from e2end.training import EarlyStopper
 from e2end.dataset.dstc2 import Dstc2, Dstc2DB
 import e2end.model
@@ -45,31 +45,34 @@ def training(sess, m, db, train, dev, config, train_writer, dev_writer):
                     for k, feat in enumerate(m.feat_list):
                         if k == 0:
                             assert 'words' in feat.name, feat.name
-                            input_fd[feat.name] = x = train.dialogs[i:i+1, t, :]
+                            input_fd[feat.name] = train.dialogs[i:i+1, t, :]
                         elif k == len(m.feat_list) - 1:
                             assert 'speakerId' in feat.name, feat.name
                             input_fd[feat.name] = train.word_speakers[i:i+1, t, :]
                         else:
                             input_fd[feat.name] = train.word_entities[i:i+1, t, k - 1, :]
 
-                    m.train_step(sess, input_fd, labels_dt, log_output=False)
-                    if step % c.train_sample_every == 0:
-                        step_outputs = m.train_step(sess, input_fd, labels_dt, log_output=True)
-                        m.log('train', train_writer, step_outputs, e, step)
+                    if step % c.train_loss_every != 0:
+                        m.train_step(sess, input_fd, labels_dt, log_output=False)
+                    else:
+                        tr_step_outputs = m.train_step(sess, input_fd, labels_dt, log_output=True)
+                        m.log('train', train_writer, tr_step_outputs, e, step)
+                        stopper_reward = -tr_step_outputs['loss']
+                        if not stopper.save_and_check(stopper_reward, step, sess):
+                            raise RuntimeError('Training not improving on train set')  # FIXME validate on dev set
 
                     if step % c.validate_every == 0:
-                        step_outputs = m.eval_step(sess, input_fd, labels_dt)
-                        m.log('dev', dev_writer, step_outputs, e, step)
+                        # decode(m, dev, step, sess, i, t, dev_writer)
+                        pass
 
-                        if not stopper.save_and_check(step_outputs['loss'], step, sess):
-                            raise RuntimeError('Training not improving')
                     step += 1
     finally:
-        stopper.saver.save(sess=sess, save_path='%s-FINAL-STOP-%7d' % (stopper.saver_prefix, step))
+        stopper.saver.save(sess=sess, save_path='%s-FINAL-%.4f-step-%07d' % (stopper.saver_prefix, stopper_reward, step))
         logger.info('Training stopped after %7d steps and %7.2f epochs', step, step / len(train))
 
 
 def decode(m, dev, step, sess, i, t, dev_writer):
+    raise NotImplementedError('FIXME')
     with elapsed_timer() as valid_timer:
         acc_log = Accumulator(['mean', 'discard', 'activations', 'discard'])
         for di in range(dev):
@@ -102,10 +105,10 @@ if __name__ == "__main__":
     c.db_file = './data/dstc2/data.dstc2.db.json'
     c.epochs = 20
     c.sys_usr_delim = ' SYS_USR_DELIM '
-    c.learning_rate = 0.00005
+    c.learning_rate = 0.05
     c.max_gradient_norm = 5.0
-    c.validate_every = 2
-    c.train_sample_every = 200
+    c.validate_every = 200
+    c.train_loss_every = 20
     c.batch_size = 1
     c.dev_batch_size = 1
     c.embedding_size=200
@@ -114,7 +117,7 @@ if __name__ == "__main__":
     c.rnn_size = 600
     c.feat_embed_size = 2
     c.nbest_models=3
-    c.not_change_limit = 5  # FIXME Be sure that we compare models from different epochs
+    c.not_change_limit = 20  # FIXME Be sure that we compare models from different epochs
     c.encoder_layers = 1
     c.decoder_layers = 1
     c.sample_unk = 0
@@ -160,7 +163,7 @@ if __name__ == "__main__":
     c.save(c.filename)
 
     logger.info('Model %s compiled and loaded', c.model_name)
-    logger.info('\n\nMonitor progress by tensorboard:\ntensorboard --logdir "%s"\n', c.train_dir)
+    launch_tensorboard(c.train_dir, c.name + '_tensorboard.log')
 
     with elapsed_timer() as sess_timer, tf.Session() as sess:
         train_writer = tf.train.SummaryWriter(c.train_dir + '/train', sess.graph)
