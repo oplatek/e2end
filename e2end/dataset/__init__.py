@@ -51,7 +51,8 @@ class Vocabulary:
         return self._int2w[index]
 
     def __repr__(self):
-        return str(self.todict())
+        dct = {'unk': self.unk, 'max_items': self.max_items, 'int2w': self._int2w}
+        return str(dct)
 
     def todict(self):
         return {'counts': self._counts,

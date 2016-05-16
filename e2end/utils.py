@@ -91,8 +91,8 @@ def elapsed_timer():
 
 def launch_tensorboard(logdir, stdout, stderr=subprocess.STDOUT):
     '''Launch tensorboard in separate process'''
+    port = 6006
     if isinstance(stdout, str):
         stdout = open(stdout, 'w')
-    tensorboard_cmd = 'tensorboard --logdir "%s"' % logdir
-    process = subprocess.Popen(tensorboard_cmd, shell=True, stdout=stdout, stderr=stderr)
-    logger.info('\n\nTensorboard launched in background: %s\nTry the defaut port 6006\nThe spawn shell has PID: %d', tensorboard_cmd, process.pid)
+    process = subprocess.Popen(['tensorboard', '--logdir', logdir, '--port', str(port)], stdout=stdout, stderr=stderr)
+    logger.info('\n\nTensorboard launched with logdir: %s and port: %d\nTensorboard PID: %d', logdir, port, process.pid)

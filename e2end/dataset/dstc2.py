@@ -79,6 +79,7 @@ class Dstc2:
             max_turn_len=None, max_dial_len=None, max_target_len=None,
             first_n=None, words_vocab=None, labels_vocab=None, sample_unk=0):
 
+        hello_token = 'Hello'  # default user history for first turn
         assert isinstance(db, Dstc2DB), type(db)
         self._raw_data = raw_data = json.load(open(filename))
         self._first_n = min(first_n, len(raw_data)) if first_n else len(raw_data)
@@ -93,7 +94,7 @@ class Dstc2:
 
         dialogs, labels, speakers, targets = dialogs[:first_n], labels[:first_n], speakers[:first_n], targets[:first_n]
 
-        self._vocab = words_vocab = words_vocab or Vocabulary([w for turns in dialogs for turn in turns for w in turn])
+        self._vocab = words_vocab = words_vocab or Vocabulary([w for turns in dialogs for turn in turns for w in turn], extra_words=[hello_token], unk='UNK')
 
         s = sorted([len(t) for turns in dialogs for t in turns])
         max_turn, perc95t = s[-1], s[int(0.95 * len(s))]
@@ -106,6 +107,8 @@ class Dstc2:
 
         entities = [[db.extract_entities(turn) for turn in d] for d in dialogs]  
 
+        logger.debug('Maximum decoder length increasing by 1, since targets are shifted by one')
+        mdl += 1
         self._turn_lens_per_dialog = np.zeros((len(dialogs), mdl), dtype=np.int64)
         self._dials = np.zeros((len(dialogs), mdl, mtl), dtype=np.int64)
         self._word_ent = np.zeros((len(dialogs), mdl, len(db.column_names), mtl), dtype=np.int64)
@@ -119,7 +122,6 @@ class Dstc2:
         self._turn_target_lens = np.zeros((len(dialogs), mdl), dtype=np.int64)
         self._word_speakers = w_spk = np.zeros((len(dialogs), mdl, mtl), dtype=np.int64)
 
-
         tmp1, tmp2 = db.column_names + ['words'], db.col_vocabs + [words_vocab]
         self._target_vocabs = OrderedDict(zip(tmp1, tmp2))
         self.word_vocabs_uplimit = OrderedDict(
@@ -130,13 +132,13 @@ class Dstc2:
                 [0] + list(self.word_vocabs_uplimit.values())[:-1]))
 
         dial_lens = []
-        for i, (d, dtargs, spks) in enumerate(zip(dialogs, targets, speakers)):
-            assert len(d) == len(dtargs)
+        for i, (d, spkss, entss, dtargss) in enumerate(zip(dialogs, speakers, entities, targets)):
+            assert len(d) == len(dtargss)
             dial_len = 0
             logger.debug('Shifting targets and turns by one. First context is empty turn')
-            d, spks = [] + d, [] + spks
-            for j, (turn, spk, target) in enumerate(zip(d, spks, dtargs)):
-                sys_word_ids = self._extract_vocab_ids(db, target)
+            d, spkss, entss = [[hello_token]] + d, [[usr]] + spkss, [db.extract_entities([hello_token])] + entss
+            for j, (turn, spks, ents, targets) in enumerate(zip(d, spkss, entss, dtargss)):
+                sys_word_ids = self._extract_vocab_ids(targets)
                 if j > mdl or len(turn) > mtl or len(sys_word_ids) > mtarl:
                     logger.debug("Keep prefix of turns, discard following turns because:"
                         "a) num_turns too big "
@@ -145,13 +147,12 @@ class Dstc2:
                     break
                 else:
                     dial_len += 1
-
-                assert len(turn) == len(spk), str((len(turn), len(spk), turn, spk))
+                assert len(turn) == len(spks), str((len(turn), len(spks), turn, spks))
                 self._turn_lens[i, j] = len(turn)
-                for k, (w, s_id) in enumerate(zip(turn, spk)):
+                for k, (w, s_id) in enumerate(zip(turn, spks)):
                     self._dials[i, j, k] = words_vocab.get_i(w, unk_chance_smaller=sample_unk)
                     w_spk[i, j, k] = s_id
-                    for l, e in enumerate(entities[i][j]):
+                    for l, e in enumerate(ents):
                         self._word_ent[i, j, l, k] = e[k]
 
                 self._turn_target_lens[i, j] = len(sys_word_ids)
@@ -164,7 +165,7 @@ class Dstc2:
 
         self._dial_lens = np.array(dial_lens)
 
-    def _extract_vocab_ids(self, db, target_words):
+    def _extract_vocab_ids(self, target_words):
         '''Heuristic how to recognize named entities from DB in sentence and
         insert user their ids instead "regular words".'''
         skip_words_of_entity = 0
@@ -181,23 +182,25 @@ class Dstc2:
                     e = ent.strip().split()
                     if w == e[0] and target_words[i:i + len(e)] == e:
                         logger.debug('found an entity "%s" from column %s in target_words %s', ent, vocab_name, target_words)
-                        skip_words_of_entity = len(e)
-                        target_ids.append(self.get_target_surface_id(vocab_name, vocab, ent))
+                        skip_words_of_entity = len(e) - 1
+                        w_id = self.get_target_surface_id(vocab_name, vocab, ent)
+                        target_ids.append(w_id)
                         w_found = True
                         break
                 if w_found:
                     break
             if not w_found:
                 logger.debug('Target word "%s" treated as regular word', w)
-                target_ids.append(self._vocab.get_i(w))
+                target_ids.append(self.get_target_surface_id('words', self._vocab, w))
         return target_ids
 
     def get_target_surface_id(self, vocab_name, vocab, w):
         return self.word_vocabs_downlimit[vocab_name] + vocab.get_i(w)
 
     def get_target_surface(self, w_id):
-        vocab_id = bisect.bisect(self.word_vocabs_uplimit.values(), w_id) 
-        vocab_name = self.word_vocabs_uplimit.keys[vocab_id]
+        vocab_up_idx = list(self.word_vocabs_uplimit.values())
+        vocab_id = bisect.bisect(vocab_up_idx, w_id)
+        vocab_name = list(self.word_vocabs_uplimit.keys())[vocab_id]
         w_id_in_vocab = w_id - self.word_vocabs_downlimit[vocab_name]
         return vocab_name, self._target_vocabs[vocab_name].get_w(w_id_in_vocab)
 

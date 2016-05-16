@@ -34,9 +34,9 @@ def training(sess, m, db, train, dev, config, train_writer, dev_writer):
                 for t in range(train.dial_lens[i]):
                     logger.info('Step %d', step)
                     assert c.batch_size == 1, 'FIXME not doing proper batching'  # FIXME
-                    labels_dt = {m.dec_targets: train.turn_targets[i:i+1, t, :],
-                                 m.target_lens: train.turn_target_lens[i:i+1, t], }
-                    input_fd = {m.turn_len: train.turn_lens[i:i+1, t],
+                    labels_dt = {m.dec_targets.name: train.turn_targets[i:i+1, t, :],
+                                 m.target_lens.name: train.turn_target_lens[i:i+1, t], }
+                    input_fd = {m.turn_len.name: train.turn_lens[i:i+1, t],
                                 m.is_first_turn: t == 0,
                                 m.dropout_keep_prob: c.dropout,
                                 m.dropout_db_keep_prob: c.db_dropout,
@@ -52,23 +52,26 @@ def training(sess, m, db, train, dev, config, train_writer, dev_writer):
                         else:
                             input_fd[feat.name] = train.word_entities[i:i+1, t, k - 1, :]
 
-                    if step % c.train_loss_every != 0:
-                        m.train_step(sess, input_fd, labels_dt, log_output=False)
-                    else:
+                    if step % c.sample_every == 0:
+                        tr_step_outputs = m.eval_step(sess, input_fd, labels_dt)
+                        m.log('train', train_writer, input_fd, tr_step_outputs, e, step, dstc2_set=train, labels_dt=labels_dt)
+                    elif step % c.train_loss_every == 0:
                         tr_step_outputs = m.train_step(sess, input_fd, labels_dt, log_output=True)
-                        m.log('train', train_writer, tr_step_outputs, e, step)
+                        m.log('train', train_writer, input_fd, tr_step_outputs, e, step, dstc2_set=train, labels_dt=labels_dt)
+                    else:
+                        m.train_step(sess, input_fd, labels_dt, log_output=False)
+
+                    if step % c.validate_every == 0:
+                        # FIXME run validation on full validation set instead
+                        tr_step_outputs = m.eval_step(sess, input_fd, labels_dt)
                         stopper_reward = -tr_step_outputs['loss']
                         if not stopper.save_and_check(stopper_reward, step, sess):
                             raise RuntimeError('Training not improving on train set')  # FIXME validate on dev set
 
-                    if step % c.validate_every == 0:
-                        # decode(m, dev, step, sess, i, t, dev_writer)
-                        pass
-
                     step += 1
     finally:
         stopper.saver.save(sess=sess, save_path='%s-FINAL-%.4f-step-%07d' % (stopper.saver_prefix, stopper_reward, step))
-        logger.info('Training stopped after %7d steps and %7.2f epochs', step, step / len(train))
+        logger.info('Training stopped after %7d steps and %7.2f epochs. See logs for %s', step, step / len(train), config.train_dir)
 
 
 def decode(m, dev, step, sess, i, t, dev_writer):
@@ -100,15 +103,15 @@ if __name__ == "__main__":
     c.col_vocab_prefix = '%s.vocab.col.' % c.name
     c.log_name = '%s.log' % c.name
     c.seed=123
-    c.train_file = './data/dstc2/data.dstc2.train.json'
-    c.dev_file = './data/dstc2/data.dstc2.dev.json'
-    c.db_file = './data/dstc2/data.dstc2.db.json'
-    c.epochs = 20
-    c.sys_usr_delim = ' SYS_USR_DELIM '
+    c.train_file = './data/artificial/data.dstc2.example1.json'
+    c.db_file = './data/artificial/data.dstc2.orthogonal7rowdb.json'
+    c.dev_file = './data/artificial/data.dstc2.example1.json'  # FIXME DEV
+    c.epochs = 2
     c.learning_rate = 0.05
     c.max_gradient_norm = 5.0
     c.validate_every = 200
-    c.train_loss_every = 20
+    c.train_loss_every = 1
+    c.sample_every = 1
     c.batch_size = 1
     c.dev_batch_size = 1
     c.embedding_size=200

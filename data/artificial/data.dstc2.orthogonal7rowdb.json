@@ -1,0 +1,65 @@
+[
+    {
+        "phone": "01223 461661",
+        "pricerange": "expensive",
+        "addr": "31 newnham road newnham",
+        "area": "west",
+        "food": "indian",
+        "postcode": "not available",
+        "name": "india house"
+    },
+    {
+        "addr": "cambridge retail park newmarket road fen ditton",
+        "area": "east",
+        "food": "italian",
+        "phone": "01223 323737",
+        "pricerange": "moderate",
+        "postcode": "c b 5 8 w r",
+        "name": "pizza hut fen ditton"
+    },
+    {
+        "name": "michaelhouse cafe",
+        "area": "centre",
+        "food": "european",
+        "phone": "01223 309147",
+        "pricerange": "expensive",
+        "postcode": "c b 2 1 s u",
+        "addr": "st michael's church trinity street city centre"
+    },
+    {
+        "addr": "21 burleigh street city centre",
+        "pricerange": "expensive",
+        "name": "hk fusion",
+        "area": "west",
+        "food": "chinese",
+        "phone": "not available",
+        "postcode": "c b 1"
+    },
+    {
+        "phone": "01223 337766",
+        "pricerange": "moderate",
+        "name": "restaurant one seven",
+        "area": "north",
+        "food": "british",
+        "postcode": "not available",
+        "addr": "de vere university arms regent street city centre"
+    },
+    {
+        "phone": "01223 307581",
+        "pricerange": "cheap",
+        "name": "j restaurant",
+        "area": "centre",
+        "food": "asian oriental",
+        "postcode": "c b 2",
+        "addr": "86 regent street city centre"
+    },
+    {
+        "name": "the lucky star",
+        "area": "south",
+        "food": "chinese",
+        "phone": "01223 244277",
+        "pricerange": "cheap",
+        "postcode": "c b 1 7 d y",
+        "addr": "cambridge leisure park clifton way cherry hinton"
+    }
+]

@@ -36,7 +36,7 @@ class E2E_property_decoding():
         self.feed_previous = tf.placeholder(tf.bool, name='feed_previous')
 
         self.dec_targets = tf.placeholder(tf.int64, shape=(c.batch_size, c.max_target_len), name='dec_targets')
-        self.target_lens = tf.placeholder(tf.int64, shape=(c.batch_size,), name='decoder_lengths')
+        self.target_lens = tf.placeholder(tf.int64, shape=(c.batch_size,), name='target_lens')
 
     def __init__(self, config):
         c = config  # shortcut as it is used heavily
@@ -219,16 +219,16 @@ class E2E_property_decoding():
                         initial_state_attention=False)
                     return outputs + [state]
 
-            *dec_outputs, dec_state = control_flow_ops.cond(self.feed_previous,
+            *dec_logitss, dec_state = control_flow_ops.cond(self.feed_previous,
                                                             lambda: decoder(True),
                                                             lambda: decoder(False))
-            self.dec_outputs = dec_outputs
+            self.dec_outputs = [tf.arg_max(dec_logits, 1) for dec_logits in dec_logitss]
             logger.debug('Building of the decoder took %.2f s.', dec_timer())
 
         with tf.variable_scope('loss'), elapsed_timer() as loss_timer:
             # TODO load reward and implement mixer
             logger.debug('decoder_inputs are targets shifted by one')
-            self.loss = tf.nn.seq2seq.sequence_loss(dec_outputs[1:], decoder_inputs[1:], target_mask, softmax_loss_function=None)
+            self.loss = tf.nn.seq2seq.sequence_loss(dec_logitss[1:], decoder_inputs[1:], target_mask, softmax_loss_function=None)
             self._optimizer = opt = tf.train.AdamOptimizer(c.learning_rate)
             self.global_step = tf.Variable(0, name='global_step', trainable=False)
             tf.scalar_summary(self.loss.op.name + 'loss', self.loss)
@@ -257,13 +257,14 @@ class E2E_property_decoding():
             return {}
 
     def decode_step(self, session, input_feed_dict):
-        return session.run(self.dec_outputs, input_feed_dict)
+        *decoder_outs, loss_v = session.run(self.dec_outputs + [self.loss], input_feed_dict)
+        return {'loss': loss_v, 'decoder_outputs': decoder_outs}
 
     def eval_step(self, session, input_feed_dict, labels_dict):
         output_feed = self.dec_outputs + [self.loss, self.summarize]
         eval_dict = input_feed_dict.copy()
         eval_dict.update(labels_dict)
-        targets, target_lens = labels_dict[self.dec_targets], labels_dict[self.target_lens]
+        targets, target_lens = labels_dict[self.dec_targets.name], labels_dict[self.target_lens.name]
 
         *decoder_outs, loss_v, sum_v = session.run(output_feed, eval_dict)
         reward = self.evaluate(decoder_outs, targets, target_lens)
@@ -272,7 +273,7 @@ class E2E_property_decoding():
     def evaluate(self, outputs, targets, target_lens):
         return -666
 
-    def log(self, name, writer, step_outputs, e, step, dstc2_set=None):
+    def log(self, name, writer, step_inputs, step_outputs, e, step, dstc2_set=None, labels_dt=None):
         if 'summarize' in step_outputs:
             writer.add_summary(step_outputs['summarize'], e)
 
@@ -282,9 +283,28 @@ class E2E_property_decoding():
                 continue
             logger.debug('  %s: %s' % (k, v))
 
-        if dstc2_set is not None and 'decoder_outputs' in step_outputs:
-            out = ' '.join([dstc2_set.get_target_surface(i) for i in step_outputs['decoder_outputs']])
-            logger.debug(out)
+        if dstc2_set is not None:
+            if 'words:0' in step_inputs and 'turn_len:0' in step_inputs:
+                binputs, blens = step_inputs['words:0'], step_inputs['turn_len:0']
+                for b, (inp, d) in enumerate(zip(binputs, blens)):
+                    logger.info('inp %07d,%02d: %s', step, b, ' '.join([dstc2_set.words_vocab.get_w(idx) for idx in inp[:d]]))
+            if 'decoder_outputs' in step_outputs:
+                touts = step_outputs['decoder_outputs']
+                print('DEBUG', len(touts))
+                bsize = len(touts[0])
+                bouts = [[] for i in range(bsize)]
+                # FIXME how to detect end of decoding
+                # transpose time x batch -> batch_size
+                for tout in touts:
+                    for b in range(bsize):
+                        bouts[b].append(tout[b])
+                for bout in bouts:
+                    print('DEBUG', bout)
+                    logger.info('dec %07d,%02d: %s', step, b, ' '.join([dstc2_set.get_target_surface(i)[1] for i in bout]))
+            if labels_dt is not None and 'dec_targets:0' in labels_dt and 'target_lens:0' in labels_dt:
+                btargets, blens = labels_dt['dec_targets:0'], labels_dt['target_lens:0']
+                for b, (targets, d) in enumerate(zip(btargets, blens)):
+                    logger.info('trg %07d,%02d: %s', step, b, ' '.join([dstc2_set.get_target_surface(i)[1] for i in targets[0:d]]))
 
 
 def embedding_attention_decoder(decoder_inputs, initial_state, attention_states,
@@ -420,18 +440,22 @@ class FastComp(E2E_property_decoding):
         train_dict = input_feed_dict.copy()
         train_dict.update(labels_dict)
         session.run(self.testTrainOp, train_dict)
-        print('input_feed_dict', input_feed_dict)
-        print('input_feed_dict_shape', [(k, v.shape) if hasattr(v, 'shape') else (k, v) for k, v in input_feed_dict.items()])
-        print('\nlabels_dict', labels_dict)
-        print('labels_dict', [(k, v.shape) if hasattr(v, 'shape') else (k, v) for k, v in labels_dict.items()])
-        return
+        logger.debug('input_feed_dict: %s', input_feed_dict)
+        logger.debug('input_feed_dict_shape: %s', [(k, v.shape) if hasattr(v, 'shape') else (k, v) for k, v in input_feed_dict.items()])
+        logger.debug('\nlabels_dict: %s', labels_dict)
+        logger.debug('labels_dict: %s', [(k, v.shape) if hasattr(v, 'shape') else (k, v) for k, v in labels_dict.items()])
+
+        if log_output:
+            return {'loss': -666, 'summarize': tf.Summary(value=[tf.Summary.Value(tag='dummy_loss', simple_value=-666)])}
+        else:
+            return {}
+        return {}
 
     def decode_step(self, session, input_feed_dict):
-        print('input_feed_dict', input_feed_dict)
-        return [0, 0, 0]
+        logger.debug('input_feed_dict: %s', input_feed_dict)
+        return {'decoder_outputs': [[0]], 'loss': -777}
 
     def eval_step(self, session, input_feed_dict, labels_dict):
-        return (666, [0, 0, 0], -666)
-
-    def log(self, name, writer, step_outputs, e, step):
-        pass
+        return {'decoder_outputs': [[1]], 'loss': -777,
+                'summarize': tf.Summary(value=[tf.Summary.Value(tag='dummy_loss', simple_value=-666)]),
+                'reward': -888}

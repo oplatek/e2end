@@ -1,0 +1,53 @@
+[
+    [
+        [
+            "Hello , welcome to the Cambridge restaurant system? You can ask for restaurants by area , price range or food type . How may I help you?",
+            "noise",
+            "",
+            -0.035542,
+            "none none none"
+        ],
+        [
+            "What kind of food would you like?",
+            "noise",
+            "",
+            -2.573858,
+            "none none none"
+        ],
+        [
+            "You are looking for a restaurant serving any kind of food right?",
+            "indian food",
+            "",
+            -1.590747,
+            "indian none none"
+        ],
+        [
+            "What part of town do you have in mind?",
+            "west part of town",
+            "",
+            -0.016344,
+            "indian west none"
+        ],
+        [
+            "india house serves indian food in west part of town",
+            "can i have the address and phone",
+            "",
+            -0.001082,
+            "indian west none"
+        ],
+        [
+            "Sure , india house is on 31 newnham road newnham",
+            "and the phone number",
+            "",
+            -0.067461,
+            "indian west none"
+        ],
+        [
+            "The phone number of india house is 01223 461661 .",
+            "thank you goodbye",
+            "",
+            -0.312634,
+            "indian west none"
+        ]
+    ]
+]
