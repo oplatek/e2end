@@ -40,7 +40,7 @@ def training(sess, m, db, train, dev, config, train_writer, dev_writer):
                                 m.is_first_turn: t == 0,
                                 m.dropout_keep_prob: c.dropout,
                                 m.dropout_db_keep_prob: c.db_dropout,
-                                m.feed_previous: True,
+                                m.feed_previous: False,
                                 }
                     for k, feat in enumerate(m.feat_list):
                         if k == 0:

@@ -38,12 +38,7 @@ class E2E_property_decoding():
         self.dec_targets = tf.placeholder(tf.int64, shape=(c.batch_size, c.max_target_len), name='dec_targets')
         self.target_lens = tf.placeholder(tf.int64, shape=(c.batch_size,), name='target_lens')
 
-    def __init__(self, config):
-        c = config  # shortcut as it is used heavily
-        logger.info('Compiling %s', self.__class__.__name__)
-
-        self._define_inputs(c)
-
+    def _build_encoder(self, c):
         logger.debug('For each word_i from i in 1..max_turn_len there is a list of features: word, belongs2slot1, belongs2slot2, ..., belongs2slotK')
         logger.debug('Feature list uses placelhoder.name to create feed dictionary')
 
@@ -51,6 +46,127 @@ class E2E_property_decoding():
         encoder_cell = tf.nn.rnn_cell.MultiRNNCell(
             [esingle_cell] * c.encoder_layers) if c.encoder_layers > 1 else esingle_cell
 
+        logger.debug(
+            'embedded_inputs is a list of size c.max_turn_len with tensors of shape (batch_size, all_feature_size)')
+
+        feat_embeddings = []
+        for i in range(len(self.feat_list)):
+            if i == 0:  # words
+                logger.debug('Increasing the size to fit in the GO_ID id. See above')
+                voclen = c.num_words + 1
+                emb_size = c.word_embed_size
+            else:  # binary features
+                voclen = 2
+                emb_size = c.feat_embed_size
+            feat_embeddings.append(tf.get_variable('feat_embedding{}'.format(i),
+                                                   initializer=tf.random_uniform([voclen, emb_size], -math.sqrt(3),
+                                                                                 math.sqrt(3))))
+
+        embedded_inputs = []
+        for j in range(c.max_turn_len):
+            features_j_word = []
+            for i in range(len(self.feat_list)):
+                embedded = tf.nn.embedding_lookup(feat_embeddings[i], self.feat_list[i][:, j])
+                dropped_embedded = tf.nn.dropout(embedded, self.dropout_keep_prob)
+                features_j_word.append(dropped_embedded)
+            w_features = tf.concat(1, features_j_word)
+            j or logger.debug('Word features has shape (batch, concat_embs) == %s', w_features.get_shape())
+            embedded_inputs.append(w_features)
+
+        logger.debug(
+            'We get input features for each turn, to represent dialog, we need to store the state between the turns')
+        dialog_state_before_acc = tf.get_variable('dialog_state_before_turn',
+                                                  initializer=tf.zeros([c.batch_size, c.encoder_size],
+                                                                       dtype=tf.float32), trainable=False)
+        dialog_state_before_turn = control_flow_ops.cond(self.is_first_turn,
+                                                         lambda: encoder_cell.zero_state(c.batch_size, tf.float32),
+                                                         lambda: dialog_state_before_acc)
+        words_hidden_feat, dialog_state_after_turn = tf.nn.rnn(encoder_cell, embedded_inputs,
+                                                               initial_state=dialog_state_before_turn,
+                                                               sequence_length=self.turn_len)
+        dialog_state_before_acc = tf.assign(dialog_state_before_acc, dialog_state_after_turn)
+        return encoder_cell, words_hidden_feat, dialog_state_after_turn
+
+    def _build_db(self, c, encoder_cell, words_hidden_feat, dialog_state_after_turn):
+        col_embeddings = [tf.get_variable('col_values_embedding{}'.format(i),
+                                          initializer=tf.random_uniform([col_vocab_size, c.col_emb_size],
+                                                                        -math.sqrt(3), math.sqrt(3))) for
+                          i, col_vocab_size in enumerate(c.col_vocab_sizes)]
+
+        with elapsed_timer() as db_embed_timer:
+            db_rows_embeddings = []
+            for i in range(c.num_rows):
+                row_embed_arr = [
+                    tf.nn.dropout(tf.nn.embedding_lookup(col_embeddings[j], self.db_rows[i, j]), self.dropout_db_keep_prob) for j in
+                    range(c.num_cols)]
+                row_embed = tf.concat(0, row_embed_arr)
+                i or logger.debug('row_embed_arr is list of different [%s] * %d', row_embed_arr[0].get_shape(),
+                                  len(row_embed_arr))
+                i or logger.debug('row_embed shape %s', row_embed.get_shape())
+                db_rows_embeddings.append(row_embed)
+            logger.debug('Create embeddings of  all db rows took %.2f s', db_embed_timer())
+
+        batched_db_rows_embeddings = [tf.tile(tf.expand_dims(re, 0), [c.batch_size, 1]) for re in
+                                      db_rows_embeddings]
+
+        # logger.debug('Building word & db_vocab attention started %.2f from DB construction start')
+        # logger.debug('Simple computation because lot of inputs')
+        # assert c.col_emb_size == encoder.hidden_size, 'Otherwise I cannot do scalar product'
+        # words_attributes_distance = []
+        # for w_hid_feat in words_hidden_feat:
+        #     vocab_offset = 0
+        #     for vocab_emb, vocab_size in zip(col_embeddings, col_vocab_sizes):
+        #         for idx in range(vocab_size):
+        #             w_emb = tf.nn.embedding_lookup(vocab_emb, idx)
+        #             wT_times_db_emb_value = tf.matmul(tf.transpose(w_hid_feat), w_emb)
+        #             words_attributes_distance.append(wT_times_db_emb_value)
+        # words_attributes_att = tf.softmax(tf.concat(0, words_attributes_distance))
+        # words_vocab_entries_att = todo_reshape_into_word_TIMES_slot_vocab_TIMES_slot_value
+
+        def select_row(batched_row, encoded_history, reuse=False, scope='select_row'):
+            with tf.variable_scope(scope, reuse=reuse):
+                inpt = tf.concat(1, [batched_row, encoded_history])
+                inpt_size = inpt.get_shape().as_list()[1]
+                W1 = tf.get_variable('W1', initializer=tf.random_normal([inpt_size, c.mlp_db_l1_size]))
+                b1 = tf.get_variable('b1', initializer=tf.random_normal([c.mlp_db_l1_size]))
+                layer1 = tf.nn.relu(tf.nn.xw_plus_b(inpt, W1, b1))
+
+                last_layer = layer1
+                last_layer_size = c.mlp_db_l1_size
+                Out = tf.get_variable('Out', initializer=tf.random_normal([last_layer_size, 1]))
+                b_out = tf.get_variable('b_out', initializer=tf.random_normal([1]))
+                should_be_selected_att = tf.nn.sigmoid(tf.nn.xw_plus_b(last_layer, Out, b_out))
+                return should_be_selected_att
+
+        row_selected_arr = []
+        for i, r in enumerate(batched_db_rows_embeddings):
+            reuse = False if i == 0 else True
+            row_sel = select_row(r, dialog_state_after_turn, reuse=reuse)
+            i or logger.debug('First row selected shape: %s', row_sel.get_shape())
+            row_selected_arr.append(row_sel)
+
+        row_selected = tf.transpose(tf.pack(row_selected_arr), perm=(1, 0, 2))
+        logger.debug('row_selected shape: %s', row_selected.get_shape())
+
+        weighted_rows = [tf.mul(w, r) for w, r in zip(batched_db_rows_embeddings, row_selected_arr)]
+        logger.debug('weigthed_rows[0].get_shape() %s', weighted_rows[0].get_shape())
+        db_embed_inputs = tf.concat(1, weighted_rows + [dialog_state_after_turn])
+        logger.debug('db_embed_inputs.get_shape() %s', db_embed_inputs.get_shape())
+
+        input_len = db_embed_inputs.get_shape().as_list()[1]
+        Wdb = tf.get_variable('Wdb', initializer=tf.random_normal([input_len, c.mlp_db_embed_l1_size]))
+        logger.debug('Wdb.get_shape() %s', Wdb.get_shape())
+        Bdb = tf.get_variable('Bdb', initializer=tf.random_normal([c.mlp_db_embed_l1_size]))
+        l1 = tf.nn.relu(tf.nn.xw_plus_b(db_embed_inputs, Wdb, Bdb))
+        out_size = encoder_cell.output_size
+        WOutDb = tf.get_variable('WOutDb', initializer=tf.random_normal([c.mlp_db_embed_l1_size, out_size]))
+        BOutDb = tf.get_variable('BOutDb', initializer=tf.random_normal([out_size]))
+        db_embed = tf.nn.xw_plus_b(l1, WOutDb, BOutDb)
+        # FIXME try to interpret the output of the DB ege again as attention
+        logger.debug('db_embed.get_shape() %s', db_embed.get_shape())
+        return db_embed, row_selected
+
+    def _build_decoder(self, c, encoded_state, att_hidd_feat_list):
         logger.debug('The decoder uses special token GO_ID as first input. Adding to vocabulary.')
         self.GO_ID = c.num_words
         self.goid = tf.constant(self.GO_ID)
@@ -65,163 +181,60 @@ class E2E_property_decoding():
             [dsingle_cell] * c.decoder_layers) if c.decoder_layers > 1 else dsingle_cell
         target_mask = [tf.squeeze(m, [1]) for m in tf.split(1, c.max_target_len, lengths2mask2d(self.target_lens, c.max_target_len))]
 
+        # Take from tf/python/ops/seq2seq.py:706
+        # First calculate a concatenation of encoder outputs to put attention on.
+        logger.debug('att_hidd_feat_list[0].get_shape() %s', att_hidd_feat_list[0].get_shape())
+        top_states = [tf.reshape(e, [-1, 1, c.encoder_size])
+                      for e in att_hidd_feat_list]  # FIXME should I change it different size that encoder_(feat) size?
+        attention_states = tf.concat(1, top_states)
+        logger.debug('attention_states.get_shape() %s', attention_states.get_shape())
+
+        total_input_vocab_size = sum(c.col_vocab_sizes + [c.num_words])
+        decoder_cell = tf.nn.rnn_cell.OutputProjectionWrapper(decoder_cell, total_input_vocab_size)
+
+        encoded_state_size = encoded_state.get_shape().as_list()[1]
+        assert encoded_state_size == decoder_cell.state_size, str(decoder_cell.state_size) + str(encoded_state_size)
+        logger.debug('encoded_state.get_shape() %s', encoded_state.get_shape())
+
+        assert c.word_embed_size == c.col_emb_size, 'We are docoding one of entity.property from DB or word'
+        num_decoder_symbols = total_input_vocab_size
+        logger.debug('num_decoder_symbols %s', num_decoder_symbols)
+
+        # If feed_previous is a Tensor, we construct 2 graphs and use cond.
+
+        def decoder(feed_previous_bool, scope='att_decoder'):
+            reuse = None if feed_previous_bool else True
+            with tf.variable_scope(scope, reuse=reuse):
+                outputs, state = embedding_attention_decoder(
+                    decoder_inputs, encoded_state, attention_states, decoder_cell,
+                    num_decoder_symbols, c.word_embed_size, num_heads=1,
+                    feed_previous=feed_previous_bool,
+                    update_embedding_for_previous=True,
+                    initial_state_attention=False)
+                return outputs + [state]
+
+        *dec_logitss, _dec_state = control_flow_ops.cond(self.feed_previous,
+                                                        lambda: decoder(True),
+                                                        lambda: decoder(False))
+        return decoder_inputs, target_mask, dec_logitss
+
+    def __init__(self, config):
+        c = config  # shortcut as it is used heavily
+        logger.info('Compiling %s', self.__class__.__name__)
+
+        self._define_inputs(c)
         with tf.variable_scope('encoder'), elapsed_timer() as inpt_timer:
-            logger.debug(
-                'embedded_inputs is a list of size c.max_turn_len with tensors of shape (batch_size, all_feature_size)')
-
-            feat_embeddings = []
-            for i in range(len(self.feat_list)):
-                if i == 0:  # words
-                    logger.debug('Increasing the size to fit in the GO_ID id. See above')
-                    voclen = c.num_words + 1
-                    emb_size = c.word_embed_size
-                else:  # binary features
-                    voclen = 2
-                    emb_size = c.feat_embed_size
-                feat_embeddings.append(tf.get_variable('feat_embedding{}'.format(i),
-                                                       initializer=tf.random_uniform([voclen, emb_size], -math.sqrt(3),
-                                                                                     math.sqrt(3))))
-
-            embedded_inputs = []
-            for j in range(c.max_turn_len):
-                features_j_word = []
-                for i in range(len(self.feat_list)):
-                    embedded = tf.nn.embedding_lookup(feat_embeddings[i], self.feat_list[i][:, j])
-                    dropped_embedded = tf.nn.dropout(embedded, self.dropout_keep_prob)
-                    features_j_word.append(dropped_embedded)
-                w_features = tf.concat(1, features_j_word)
-                j or logger.debug('Word features has shape (batch, concat_embs) == %s', w_features.get_shape())
-                embedded_inputs.append(w_features)
-
-            logger.debug(
-                'We get input features for each turn, to represent dialog, we need to store the state between the turns')
-            dialog_state_before_acc = tf.get_variable('dialog_state_before_turn',
-                                                      initializer=tf.zeros([c.batch_size, c.encoder_size],
-                                                                           dtype=tf.float32), trainable=False)
-            dialog_state_before_turn = control_flow_ops.cond(self.is_first_turn,
-                                                             lambda: encoder_cell.zero_state(c.batch_size, tf.float32),
-                                                             lambda: dialog_state_before_acc)
-            logger.debug('Initialization of encoder inputs and control flow took  %.2f s.', inpt_timer())
-            words_hidden_feat, dialog_state_after_turn = tf.nn.rnn(encoder_cell, embedded_inputs,
-                                                                   initial_state=dialog_state_before_turn,
-                                                                   sequence_length=self.turn_len)
-            dialog_state_before_acc = tf.assign(dialog_state_before_acc, dialog_state_after_turn)
+            encoder_cell, words_hidden_feat, dialog_state_after_turn = self._build_encoder(c)
+            logger.debug('Initialization of encoder took  %.2f s.', inpt_timer())
 
         with tf.variable_scope('db_encoder'), elapsed_timer() as db_timer:
-            col_embeddings = [tf.get_variable('col_values_embedding{}'.format(i),
-                                              initializer=tf.random_uniform([col_vocab_size, c.col_emb_size],
-                                                                            -math.sqrt(3), math.sqrt(3))) for
-                              i, col_vocab_size in enumerate(c.col_vocab_sizes)]
+            db_embed, row_selected = self._build_db(c, encoder_cell, words_hidden_feat, dialog_state_after_turn)
 
-            db_rows_embeddings = []
-            for i in range(c.num_rows):
-                row_embed_arr = [
-                    tf.nn.dropout(tf.nn.embedding_lookup(col_embeddings[j], self.db_rows[i, j]), self.dropout_db_keep_prob) for j in
-                    range(c.num_cols)]
-                row_embed = tf.concat(0, row_embed_arr)
-                i or logger.debug('row_embed_arr is list of different [%s] * %d', row_embed_arr[0].get_shape(),
-                                  len(row_embed_arr))
-                i or logger.debug('row_embed shape %s', row_embed.get_shape())
-                db_rows_embeddings.append(row_embed)
-            logger.debug('Create embeddings of  all db rows took %.2f s', db_timer())
-
-            batched_db_rows_embeddings = [tf.tile(tf.expand_dims(re, 0), [c.batch_size, 1]) for re in
-                                          db_rows_embeddings]
-
-            # logger.debug('Building word & db_vocab attention started %.2f from DB construction start')
-            # logger.debug('Simple computation because lot of inputs')
-            # assert c.col_emb_size == encoder.hidden_size, 'Otherwise I cannot do scalar product'
-            # words_attributes_distance = []
-            # for w_hid_feat in words_hidden_feat:
-            #     vocab_offset = 0
-            #     for vocab_emb, vocab_size in zip(col_embeddings, col_vocab_sizes):
-            #         for idx in range(vocab_size):
-            #             w_emb = tf.nn.embedding_lookup(vocab_emb, idx)
-            #             wT_times_db_emb_value = tf.matmul(tf.transpose(w_hid_feat), w_emb)
-            #             words_attributes_distance.append(wT_times_db_emb_value)
-            # words_attributes_att = tf.softmax(tf.concat(0, words_attributes_distance))
-            # words_vocab_entries_att = todo_reshape_into_word_TIMES_slot_vocab_TIMES_slot_value
-
-            def select_row(batched_row, encoded_history, reuse=False, scope='select_row'):
-                with tf.variable_scope(scope, reuse=reuse):
-                    inpt = tf.concat(1, [batched_row, encoded_history])
-                    inpt_size = inpt.get_shape().as_list()[1]
-                    W1 = tf.get_variable('W1', initializer=tf.random_normal([inpt_size, c.mlp_db_l1_size]))
-                    b1 = tf.get_variable('b1', initializer=tf.random_normal([c.mlp_db_l1_size]))
-                    layer1 = tf.nn.relu(tf.nn.xw_plus_b(inpt, W1, b1))
-
-                    last_layer = layer1
-                    last_layer_size = c.mlp_db_l1_size
-                    Out = tf.get_variable('Out', initializer=tf.random_normal([last_layer_size, 1]))
-                    b_out = tf.get_variable('b_out', initializer=tf.random_normal([1]))
-                    should_be_selected_att = tf.nn.sigmoid(tf.nn.xw_plus_b(last_layer, Out, b_out))
-                    return should_be_selected_att
-
-            row_selected_arr = []
-            for i, r in enumerate(batched_db_rows_embeddings):
-                reuse = False if i == 0 else True
-                row_sel = select_row(r, dialog_state_after_turn, reuse=reuse)
-                i or logger.debug('First row selected shape: %s', row_sel.get_shape())
-                row_selected_arr.append(row_sel)
-
-            row_selected = tf.transpose(tf.pack(row_selected_arr), perm=(1, 0, 2))
-            logger.debug('row_selected shape: %s', row_selected.get_shape())
-
-            weighted_rows = [tf.mul(w, r) for w, r in zip(batched_db_rows_embeddings, row_selected_arr)]
-            logger.debug('weigthed_rows[0].get_shape() %s', weighted_rows[0].get_shape())
-            db_embed_inputs = tf.concat(1, weighted_rows + [dialog_state_after_turn])
-            logger.debug('db_embed_inputs.get_shape() %s', db_embed_inputs.get_shape())
-
-            input_len = db_embed_inputs.get_shape().as_list()[1]
-            Wdb = tf.get_variable('Wdb', initializer=tf.random_normal([input_len, c.mlp_db_embed_l1_size]))
-            logger.debug('Wdb.get_shape() %s', Wdb.get_shape())
-            Bdb = tf.get_variable('Bdb', initializer=tf.random_normal([c.mlp_db_embed_l1_size]))
-            l1 = tf.nn.relu(tf.nn.xw_plus_b(db_embed_inputs, Wdb, Bdb))
-            out_size = encoder_cell.output_size
-            WOutDb = tf.get_variable('WOutDb', initializer=tf.random_normal([c.mlp_db_embed_l1_size, out_size]))
-            BOutDb = tf.get_variable('BOutDb', initializer=tf.random_normal([out_size]))
-            db_embed = tf.nn.xw_plus_b(l1, WOutDb, BOutDb)
-# FIXME try to interpret the output of the DB ege again as attention
-            logger.debug('db_embed.get_shape() %s', db_embed.get_shape())
+        encoded_state = tf.concat(1, [dialog_state_after_turn, tf.squeeze(row_selected, [2]), db_embed])
+        att_hidd_feat_list = words_hidden_feat + [db_embed]
 
         with tf.variable_scope('decoder'), elapsed_timer() as dec_timer:
-            # Take from tf/python/ops/seq2seq.py:706
-            # First calculate a concatenation of encoder outputs to put attention on.
-            words_and_db = words_hidden_feat + [db_embed]
-            logger.debug('top_states[0].get_shape() %s', words_hidden_feat[0].get_shape())
-            top_states = [tf.reshape(e, [-1, 1, encoder_cell.output_size])
-                          for e in words_and_db]
-            attention_states = tf.concat(1, top_states)
-            logger.debug('attention_states.get_shape() %s', attention_states.get_shape())
-
-            total_input_vocab_size = sum(c.col_vocab_sizes + [c.num_words])
-            decoder_cell = tf.nn.rnn_cell.OutputProjectionWrapper(decoder_cell, total_input_vocab_size)
-
-            encoded_state = tf.concat(1, [dialog_state_after_turn, tf.squeeze(row_selected, [2]), db_embed])
-            encoded_state_size = encoded_state.get_shape().as_list()[1]
-            assert encoded_state_size == decoder_cell.state_size, str(decoder_cell.state_size) + str(encoded_state_size)
-            logger.debug('encoded_state.get_shape() %s', encoded_state.get_shape())
-
-            assert c.word_embed_size == c.col_emb_size, 'We are docoding one of entity.property from DB or word'
-            num_decoder_symbols = total_input_vocab_size
-            logger.debug('num_decoder_symbols %s', num_decoder_symbols)
-
-            # If feed_previous is a Tensor, we construct 2 graphs and use cond.
-
-            def decoder(feed_previous_bool, scope='att_decoder'):
-                reuse = None if feed_previous_bool else True
-                with tf.variable_scope(scope, reuse=reuse):
-                    outputs, state = embedding_attention_decoder(
-                        decoder_inputs, encoded_state, attention_states, decoder_cell,
-                        num_decoder_symbols, c.word_embed_size, num_heads=1,
-                        feed_previous=feed_previous_bool,
-                        update_embedding_for_previous=True,
-                        initial_state_attention=False)
-                    return outputs + [state]
-
-            *dec_logitss, dec_state = control_flow_ops.cond(self.feed_previous,
-                                                            lambda: decoder(True),
-                                                            lambda: decoder(False))
+            decoder_inputs, target_mask, dec_logitss = self._build_decoder(c, encoded_state, att_hidd_feat_list)
             self.dec_outputs = [tf.arg_max(dec_logits, 1) for dec_logits in dec_logitss]
             logger.debug('Building of the decoder took %.2f s.', dec_timer())
 
