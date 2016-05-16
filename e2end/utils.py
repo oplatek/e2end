@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 import json
 import subprocess
+import os
 import logging
 from contextlib import contextmanager
 from timeit import default_timer
@@ -89,12 +90,18 @@ def elapsed_timer():
     finished_at, elapser = default_timer(), finished_elapser
 
 
-def launch_tensorboard(logdir, stdout, stderr=subprocess.STDOUT):
+def launch_tensorboard(logdir, stdout, stderr=subprocess.STDOUT, port=6006):
     '''Launch tensorboard in separate process'''
-    port = 6006
     if isinstance(stdout, str):
         stdout = open(stdout, 'w')
-    process = subprocess.Popen(['tensorboard', '--logdir', logdir, '--port', str(port)], stdout=stdout, stderr=stderr)
+
+    hostname = subprocess.check_output(['hostname', '-d'], universal_newlines=True).strip()
+    logdir = os.path.abspath(logdir)
+    if hostname == 'ufal.hide.ms.mff.cuni.cz':
+        cmd = ['ssh', 'shrek.ms.mff.cuni.cz', '/home/oplatek/.local/bin/tensorboard --logdir %s --port %d' % (logdir, port)]
+        logger.info('Tensorboard launch on shrek') 
+        logger.info('Run "ssh oplatek@shrek.ms.mff.cuni.cz -N -L localhost:%d:localhost:6006"', port)
+    else:
+        cmd = ['tensorboard', '--logdir', logdir, '--port', str(port)]
+    process = subprocess.Popen(cmd, stdout=stdout, stderr=stderr)
     logger.info('\n\nTensorboard launched with logdir: %s and port: %d\nTensorboard PID: %d', logdir, port, process.pid)
-    # FIXME detect if using UFAL infrastructure launch ssh and launch tensorfboard on shrek
-    # and print out how to ssh tunel to shrek ssh oplatek@shrek.ms.mff.cuni.cz -N -L localhost:6006:localhost:6006

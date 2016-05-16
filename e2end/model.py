@@ -166,7 +166,7 @@ class E2E_property_decoding():
         logger.debug('db_embed.get_shape() %s', db_embed.get_shape())
         return db_embed, row_selected
 
-    def _build_decoder(self, c, encoded_state, att_hidd_feat_list):
+    def _build_decoder(self, c, encoded_state, att_hidd_feat_list, decoder_size):
         logger.debug('The decoder uses special token GO_ID as first input. Adding to vocabulary.')
         self.GO_ID = c.num_words
         self.goid = tf.constant(self.GO_ID)
@@ -176,7 +176,7 @@ class E2E_property_decoding():
         decoder_inputs = [tf.squeeze(di, [1]) for di in decoder_inputs2D]
         logger.debug('decoder_inputs[0:1].get_shape(): %s, %s', decoder_inputs[0].get_shape(), decoder_inputs[1].get_shape())
 
-        dsingle_cell = tf.nn.rnn_cell.GRUCell(c.num_rows + c.encoder_size + c.encoder_size)
+        dsingle_cell = tf.nn.rnn_cell.GRUCell(decoder_size)
         decoder_cell = tf.nn.rnn_cell.MultiRNNCell(
             [dsingle_cell] * c.decoder_layers) if c.decoder_layers > 1 else dsingle_cell
         target_mask = [tf.squeeze(m, [1]) for m in tf.split(1, c.max_target_len, lengths2mask2d(self.target_lens, c.max_target_len))]
@@ -231,10 +231,11 @@ class E2E_property_decoding():
             db_embed, row_selected = self._build_db(c, encoder_cell, words_hidden_feat, dialog_state_after_turn)
 
         encoded_state = tf.concat(1, [dialog_state_after_turn, tf.squeeze(row_selected, [2]), db_embed])
+        decoder_size = c.num_rows + c.encoder_size + c.encoder_size
         att_hidd_feat_list = words_hidden_feat + [db_embed]
 
         with tf.variable_scope('decoder'), elapsed_timer() as dec_timer:
-            decoder_inputs, target_mask, dec_logitss = self._build_decoder(c, encoded_state, att_hidd_feat_list)
+            decoder_inputs, target_mask, dec_logitss = self._build_decoder(c, encoded_state, att_hidd_feat_list, decoder_size)
             self.dec_outputs = [tf.arg_max(dec_logits, 1) for dec_logits in dec_logitss]
             logger.debug('Building of the decoder took %.2f s.', dec_timer())
 
