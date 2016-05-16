@@ -72,6 +72,7 @@ def training(sess, m, db, train, dev, config, train_writer, dev_writer):
     finally:
         stopper.saver.save(sess=sess, save_path='%s-FINAL-%.4f-step-%07d' % (stopper.saver_prefix, stopper_reward, step))
         logger.info('Training stopped after %7d steps and %7.2f epochs. See logs for %s', step, step / len(train), config.train_dir)
+        logger.info('Best model with reward %7.2f form step %7d is %s' % stopper.highest_reward())
 
 
 def decode(m, dev, step, sess, i, t, dev_writer):

@@ -290,7 +290,6 @@ class E2E_property_decoding():
                     logger.info('inp %07d,%02d: %s', step, b, ' '.join([dstc2_set.words_vocab.get_w(idx) for idx in inp[:d]]))
             if 'decoder_outputs' in step_outputs:
                 touts = step_outputs['decoder_outputs']
-                print('DEBUG', len(touts))
                 bsize = len(touts[0])
                 bouts = [[] for i in range(bsize)]
                 # FIXME how to detect end of decoding
@@ -299,7 +298,6 @@ class E2E_property_decoding():
                     for b in range(bsize):
                         bouts[b].append(tout[b])
                 for bout in bouts:
-                    print('DEBUG', bout)
                     logger.info('dec %07d,%02d: %s', step, b, ' '.join([dstc2_set.get_target_surface(i)[1] for i in bout]))
             if labels_dt is not None and 'dec_targets:0' in labels_dt and 'target_lens:0' in labels_dt:
                 btargets, blens = labels_dt['dec_targets:0'], labels_dt['target_lens:0']

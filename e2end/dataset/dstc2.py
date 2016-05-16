@@ -79,7 +79,8 @@ class Dstc2:
             max_turn_len=None, max_dial_len=None, max_target_len=None,
             first_n=None, words_vocab=None, labels_vocab=None, sample_unk=0):
 
-        hello_token = 'Hello'  # default user history for first turn
+        self.hello_token = hello_token = 'Hello'  # Default user history for first turn
+        self.EOS = EOS = 'EOS'   # Symbol which the decoder should produce as last one'
         assert isinstance(db, Dstc2DB), type(db)
         self._raw_data = raw_data = json.load(open(filename))
         self._first_n = min(first_n, len(raw_data)) if first_n else len(raw_data)
@@ -90,11 +91,11 @@ class Dstc2:
 
         labels = [[turn[4] for turn in dialog] for dialog in raw_data]
         assert len(dialogs) == len(labels), '%s vs %s' % (dialogs, labels)
-        targets = [[(turn[0]).strip().split() for turn in dialog] for dialog in raw_data]
+        targets = [[(turn[0]).strip().split() + [EOS] for turn in dialog] for dialog in raw_data]
 
         dialogs, labels, speakers, targets = dialogs[:first_n], labels[:first_n], speakers[:first_n], targets[:first_n]
 
-        self._vocab = words_vocab = words_vocab or Vocabulary([w for turns in dialogs for turn in turns for w in turn], extra_words=[hello_token], unk='UNK')
+        self._vocab = words_vocab = words_vocab or Vocabulary([w for turns in dialogs for turn in turns for w in turn], extra_words=[hello_token, EOS], unk='UNK')
 
         s = sorted([len(t) for turns in dialogs for t in turns])
         max_turn, perc95t = s[-1], s[int(0.95 * len(s))]

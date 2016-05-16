@@ -32,19 +32,27 @@ class EarlyStopper(object):
         return reversed([heapq.heappop(self._heap) for i in range(len(self._heap))])
 
     def save_and_check(self, reward, step, sess):
+
+        def save(reward, step):
+            path = self.saver.save(sess, '%s-reward-%.4f-step-%07d' % (self.saver_prefix, reward, step))
+            logger.info('Sess: %f saved to %s', reward, path)
+            return path
+
         if len(self._heap) < self.n_best:
             self._not_improved = 0
-            heapq.heappush(self._heap, (reward, step, sess))
+            path = save(reward, step)
+            heapq.heappush(self._heap, (reward, step, path))
         else:
             last_reward = self._heap[0][0]
             if last_reward < reward:
                 heapq.heappop(self._heap)
-                heapq.heappush(self._heap, (reward, step, sess))
+                path = save(reward, step)
+                heapq.heappush(self._heap, (reward, step, path))
                 self._not_improved = 0
             else:
                 logger.info('Not keeping reward %f from step %d', reward, step)
                 self._not_improved += 1
-        if self._not_improved == 0:  # we stored the model
-            path = self.saver.save(sess, '%s-reward-%.4f-step-%07d' % (self.saver_prefix, reward, step))
-            logger.info('Sess: %f saved to %s', reward, path)
         return self._not_improved <= self.not_change_limit
+
+    def highest_reward(self):
+        return max(self._heap)

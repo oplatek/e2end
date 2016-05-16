@@ -96,3 +96,5 @@ def launch_tensorboard(logdir, stdout, stderr=subprocess.STDOUT):
         stdout = open(stdout, 'w')
     process = subprocess.Popen(['tensorboard', '--logdir', logdir, '--port', str(port)], stdout=stdout, stderr=stderr)
     logger.info('\n\nTensorboard launched with logdir: %s and port: %d\nTensorboard PID: %d', logdir, port, process.pid)
+    # FIXME detect if using UFAL infrastructure launch ssh and launch tensorfboard on shrek
+    # and print out how to ssh tunel to shrek ssh oplatek@shrek.ms.mff.cuni.cz -N -L localhost:6006:localhost:6006
