@@ -95,7 +95,10 @@ def launch_tensorboard(logdir, stdout, stderr=subprocess.STDOUT, port=6006):
     if isinstance(stdout, str):
         stdout = open(stdout, 'w')
 
-    hostname = subprocess.check_output(['hostname', '-d'], universal_newlines=True).strip()
+    try:
+        hostname = subprocess.check_output(['hostname', '-d'], universal_newlines=True).strip()
+    except subprocess.CalledProcessError:
+        hostname = 'unknown'
     logdir = os.path.abspath(logdir)
     if hostname == 'ufal.hide.ms.mff.cuni.cz':
         cmd = ['ssh', 'shrek.ms.mff.cuni.cz', '/home/oplatek/.local/bin/tensorboard --logdir %s --port %d' % (logdir, port)]
