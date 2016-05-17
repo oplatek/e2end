@@ -98,6 +98,7 @@ if __name__ == "__main__":
 
     c = Config()  
     c.name=args.name
+    c.use_db_encoder = False
     c.train_dir = c.name + '_traindir'
     c.filename = '%s.json' % c.name
     c.words_vocab_file = '%s.vocab.words' % c.name

@@ -166,7 +166,7 @@ class E2E_property_decoding():
         logger.debug('db_embed.get_shape() %s', db_embed.get_shape())
         return db_embed, row_selected
 
-    def _build_decoder(self, c, encoded_state, att_hidd_feat_list, decoder_size):
+    def _build_decoder(self, c, encoded_state, att_hidd_feat_list):
         logger.debug('The decoder uses special token GO_ID as first input. Adding to vocabulary.')
         self.GO_ID = c.num_words
         self.goid = tf.constant(self.GO_ID)
@@ -176,6 +176,8 @@ class E2E_property_decoding():
         decoder_inputs = [tf.squeeze(di, [1]) for di in decoder_inputs2D]
         logger.debug('decoder_inputs[0:1].get_shape(): %s, %s', decoder_inputs[0].get_shape(), decoder_inputs[1].get_shape())
 
+
+        decoder_size = encoded_state.get_shape().as_list()[1]
         dsingle_cell = tf.nn.rnn_cell.GRUCell(decoder_size)
         decoder_cell = tf.nn.rnn_cell.MultiRNNCell(
             [dsingle_cell] * c.decoder_layers) if c.decoder_layers > 1 else dsingle_cell
@@ -228,14 +230,18 @@ class E2E_property_decoding():
             logger.debug('Initialization of encoder took  %.2f s.', inpt_timer())
 
         with tf.variable_scope('db_encoder'), elapsed_timer() as db_timer:
-            db_embed, row_selected = self._build_db(c, encoder_cell, words_hidden_feat, dialog_state_after_turn)
-
-        encoded_state = tf.concat(1, [dialog_state_after_turn, tf.squeeze(row_selected, [2]), db_embed])
-        decoder_size = c.num_rows + c.encoder_size + c.encoder_size
-        att_hidd_feat_list = words_hidden_feat + [db_embed]
+            if c.use_db_encoder:
+                db_embed, row_selected = self._build_db(c, encoder_cell, words_hidden_feat, dialog_state_after_turn)
+                encoded_state = tf.concat(1, [dialog_state_after_turn, tf.squeeze(row_selected, [2]), db_embed])
+                att_hidd_feat_list = words_hidden_feat + [db_embed]
+                logger.info('\nInitialized db encoder in %.2f s\n', db_timer())
+            else:
+                encoded_state = dialog_state_after_turn
+                att_hidd_feat_list = words_hidden_feat
+                logger.info('\nUsing plain encoder decoder\n')
 
         with tf.variable_scope('decoder'), elapsed_timer() as dec_timer:
-            decoder_inputs, target_mask, dec_logitss = self._build_decoder(c, encoded_state, att_hidd_feat_list, decoder_size)
+            decoder_inputs, target_mask, dec_logitss = self._build_decoder(c, encoded_state, att_hidd_feat_list)
             self.dec_outputs = [tf.arg_max(dec_logits, 1) for dec_logits in dec_logitss]
             logger.debug('Building of the decoder took %.2f s.', dec_timer())
 
