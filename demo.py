@@ -4,9 +4,10 @@
 Training script for end2end dialog training.
 
 """
-import logging, uuid, random, os, argparse
+import logging, random, os, argparse
+from datetime import datetime
 import tensorflow as tf
-from e2end.utils import Config, git_info, setup_logging, elapsed_timer, launch_tensorboard
+from e2end.utils import update_config, load_configs, save_config, git_info, setup_logging, elapsed_timer, launch_tensorboard
 from e2end.training import EarlyStopper
 from e2end.dataset.dstc2 import Dstc2, Dstc2DB
 import e2end.model
@@ -114,61 +115,74 @@ def validate(m, dev, e, step, sess, dev_writer):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(__doc__)
-    parser.add_argument('--name', default='log/%(u)s/%(u)s' % {'u': uuid.uuid1()})
-    args = parser.parse_args()
+    parser.add_argument('--config', nargs='*', default=[])
+    parser.add_argument('--exp', default='exp')
+    parser.add_argument('--use-db-encoder', action='store_true', default=False)
+    parser.add_argument('--train-dir', default=None)
+    parser.add_argument('--seed', type=int, default=123)
+    parser.add_argument('--log-console-level', default="INFO")
+    parser.add_argument('--train-file', default='./data/artificial/data.dstc2.example1.json')
+    parser.add_argument('--db_file', default='./data/artificial/data.dstc2.orthogonal7rowdb.json')
+    parser.add_argument('--dev_file', default='./data/artificial/data.dstc2.example1.json')
+    parser.add_argument('--word-embed-size', type=int, default=10)
+    parser.add_argument('--epochs', default=20000)
+    parser.add_argument('--learning_rate', default=0.0005)
+    parser.add_argument('--max_gradient_norm', default=5.0)
+    parser.add_argument('--validate_every', default=100)
+    parser.add_argument('--train_loss_every', default=1000)
+    parser.add_argument('--train_sample_every', default=100)
+    parser.add_argument('--dev_log_sample_every', default=10)
+    parser.add_argument('--batch_size', default=1)
+    parser.add_argument('--dev_batch_size', default=1)
+    parser.add_argument('--embedding_size', default=20)
+    parser.add_argument('--dropout', default=1.0)
+    parser.add_argument('--db_dropout', default=1.0)
+    parser.add_argument('--feat_embed_size', default=2)
+    parser.add_argument('--nbest_models', default=3)
+    parser.add_argument('--not_change_limit', default=100)  # FIXME Be sure that we compare models from different epochs
+    parser.add_argument('--encoder_layers', default=1)
+    parser.add_argument('--decoder_layers', default=1)
+    parser.add_argument('--sample_unk', default=0)
+    parser.add_argument('--encoder_size', default=20)
+    parser.add_argument('--fast-comp', action='store_true', default=False)
 
-    c = Config()  
-    c.name=args.name
-    c.use_db_encoder = False
-    c.train_dir = c.name + '_traindir'
-    c.filename = '%s.json' % c.name
+    c = parser.parse_args()
+    conf_dict = load_configs(c.config)
+    conf_dict.update(vars(c))
+    update_config(c, conf_dict)
+
+    c.name = 'log/%(u)s-%(n)s/%(u)s%(n)s' % {'u': datetime.utcnow().strftime('%Y-%m-%d-%H-%M-%S.%f')[:-3], 'n': c.exp}
+    c.train_dir = c.train_dir or c.name + '_traindir'
+    c.config_filename = '%s.json' % c.name
     c.words_vocab_file = '%s.vocab.words' % c.name
     c.col_vocab_prefix = '%s.vocab.col.' % c.name
     c.log_name = '%s.log' % c.name
-    c.seed=123
-    c.train_file = './data/artificial/data.dstc2.example1.json'
-    c.db_file = './data/artificial/data.dstc2.orthogonal7rowdb.json'
-    c.dev_file = './data/artificial/data.dstc2.example1.json'  # FIXME DEV
-    c.epochs = 20000
-    c.learning_rate = 0.0005
-    c.max_gradient_norm = 5.0
-    c.validate_every = 100
-    c.train_loss_every = 1000
-    c.train_sample_every = 100
-    c.dev_log_sample_every = 10
-    c.batch_size = 1
-    c.dev_batch_size = 1
-    c.embedding_size= 20
-    c.dropout = 1.0
-    c.db_dropout = 1.0
-    c.feat_embed_size = 2
-    c.nbest_models=3
-    c.not_change_limit = 100  # FIXME Be sure that we compare models from different epochs
-    c.encoder_layers = 1
-    c.decoder_layers = 1
-    c.sample_unk = 0
-    c.encoder_size = 20
-    c.word_embed_size = c.col_emb_size = 10
+    c.tensorboardlog = c.name + '_tensorboard.log'
+    c.col_emb_size = c.word_embed_size
     c.mlp_db_l1_size = 6 * c.col_emb_size + c.encoder_size
     c.mlp_db_embed_l1_size = 6 * 10 * c.col_emb_size
 
     os.makedirs(os.path.dirname(c.name), exist_ok=True)
-    setup_logging(c.log_name)
+    setup_logging(c.log_name, console_level=c.log_console_level)
     logger = logging.getLogger(__name__)
+    logger.debug('Computed also config values on the fly and merged values from config and command line arguments')
+    logger.debug('Overwritten config values from command line and setup logging')
 
     random.seed(c.seed)
     tf.set_random_seed(c.seed)
 
-    db = Dstc2DB(c.db_file)
-    train = Dstc2(c.train_file, db, sample_unk=c.sample_unk, first_n=2 * c.batch_size)
-    dev = Dstc2(c.dev_file, db,
-            words_vocab=train.words_vocab,
-            max_turn_len=train.max_turn_len,
-            max_dial_len=train.max_dial_len,
-            max_target_len=train.max_target_len,
-            first_n=2 * c.dev_batch_size)
+    with elapsed_timer() as preprocess_timer:
+        db = Dstc2DB(c.db_file)
+        train = Dstc2(c.train_file, db, sample_unk=c.sample_unk, first_n=2 * c.batch_size)
+        dev = Dstc2(c.dev_file, db,
+                words_vocab=train.words_vocab,
+                max_turn_len=train.max_turn_len,
+                max_dial_len=train.max_dial_len,
+                max_target_len=train.max_target_len,
+                first_n=2 * c.dev_batch_size)
+    logger.info('Data loaded in %.2f s', preprocess_timer())
 
-    logger.info('Saving config and vocabularies')
+    logger.info('Saving data related properties to config')
     c.col_vocab_sizes = [len(vocab) for vocab in db.col_vocabs]
     c.max_turn_len = train.max_turn_len
     c.max_target_len = train.max_target_len
@@ -183,14 +197,17 @@ if __name__ == "__main__":
     for vocab, name in zip(db.col_vocabs, db.column_names):
         vocab.save(c.col_vocab_prefix + name)
 
-    m = e2end.model.E2E_property_decoding(c)
-    # m = e2end.model.FastComp(c)
+    if c.fast_comp:
+        m = e2end.model.FastComp(c)
+    else:
+        m = e2end.model.E2E_property_decoding(c)
 
     c.model_name = m.__class__.__name__
-    c.save(c.filename)
+    save_config(c, c.config_filename)
+    logger.info('Settings saved to exp config: %s', c.config_filename)
 
     logger.info('Model %s compiled and loaded', c.model_name)
-    launch_tensorboard(c.train_dir, c.name + '_tensorboard.log')
+    launch_tensorboard(c.train_dir, c.tensorboardlog)
 
     with elapsed_timer() as sess_timer, tf.Session() as sess:
         train_writer = tf.train.SummaryWriter(c.train_dir + '/train', sess.graph)

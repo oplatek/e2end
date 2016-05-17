@@ -10,29 +10,20 @@ from timeit import default_timer
 
 logger = logging.getLogger(__name__)
 
+def update_config(c, d):
+    for k, v in d.items():
+        setattr(c, k, v)
 
-class Config:
-    @classmethod
-    def load_json(cls, filename):
-        json_obj = json.load(open(filename), 'r')
-        return cls.from_dict(json_obj)
 
-    @classmethod
-    def from_dict(cls, d):
-        c = cls()
-        for k, v in d.items():
-            c.k = v
-        return d
+def load_configs(configs):
+    config = {}
+    for cn in configs:
+        c = json.load(open(cn), 'r')
+        config.update(c)
+    return config
 
-    def to_dict(self):
-        return vars(self)
-
-    def __repr__(self):
-        return json.dumps(self.to_dict(), indent=2, sort_keys=True)
-
-    def save(self, filename=None):
-        json.dump(self.to_dict(), open(filename, 'w'), indent=4, sort_keys=True)
-
+def save_config(c, filename):
+    json.dump(vars(c), open(filename, 'w'), indent=4, sort_keys=True)
 
 def git_info():
     head, diff, remote = None, None, None
