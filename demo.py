@@ -170,19 +170,19 @@ if __name__ == "__main__":
 
     random.seed(c.seed)
     tf.set_random_seed(c.seed)
-
+    
     with elapsed_timer() as preprocess_timer:
         db = Dstc2DB(c.db_file)
-        train = Dstc2(c.train_file, db, sample_unk=c.sample_unk, first_n=2 * c.batch_size)
+        train = Dstc2(c.train_file, db, sample_unk=c.sample_unk, first_n=None)
         dev = Dstc2(c.dev_file, db,
                 words_vocab=train.words_vocab,
                 max_turn_len=train.max_turn_len,
                 max_dial_len=train.max_dial_len,
                 max_target_len=train.max_target_len,
-                first_n=2 * c.dev_batch_size)
+                first_n=100)
     logger.info('Data loaded in %.2f s', preprocess_timer())
 
-    logger.info('Saving data related properties to config')
+    logger.info('Saving config and vocabularies')
     c.col_vocab_sizes = [len(vocab) for vocab in db.col_vocabs]
     c.max_turn_len = train.max_turn_len
     c.max_target_len = train.max_target_len
