@@ -40,3 +40,14 @@ Todo
 - investigate indexed_sliced
 - Mixer can be easily (thanks for Jindra's inspiration) used on top of xent
 - better options loader combine with configs from Alex and https://pypi.python.org/pypi/json-cfg
+
+
+
+Nice examples
+-------------
+
+enc-dec problem 
+inp 0008800,00: Hello , welcome to the Cambridge restaurant system? You can ask for restaurants by area , price range or food type . How may I help you? id like an expensive restaurant that serves bat food
+dec 0008800,00: Ok I'm sorry but there is no restaurant serving australian food EOS
+trg 0008800,00: I'm sorry but there is no restaurant serving basque food EOS
+
