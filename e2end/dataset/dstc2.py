@@ -11,6 +11,7 @@ logger = logging.getLogger(__name__)
 
 class Dstc2DB:
     def __init__(self, filename, first_n=None):
+        logger.info('\nLoading DB %s', filename)
         self._raw_data = raw_data = json.load(open(filename))[:first_n]
         self._col_names = col_names = sorted(list(set([k for r in raw_data for k in r.keys()])))
         self._col_name_vocab = Vocabulary([], extra_words=col_names, unk=None)
@@ -79,6 +80,7 @@ class Dstc2:
             max_turn_len=None, max_dial_len=None, max_target_len=None,
             first_n=None, words_vocab=None, labels_vocab=None, sample_unk=0):
 
+        logger.info('\nLoading dataset %s', filename)
         self.hello_token = hello_token = 'Hello'  # Default user history for first turn
         self.EOS = EOS = 'EOS'   # Symbol which the decoder should produce as last one'
         assert isinstance(db, Dstc2DB), type(db)
@@ -104,7 +106,7 @@ class Dstc2:
         d = sorted([len(d) for d in dialogs])
         max_dial, perc95d = d[-1], d[int(0.95 * len(d))]
         self._max_dial_len = mdl = max_dial_len or max_dial 
-        logger.info('Dial length: %4d.\Dial turn len %4d.\n95-percentil %4d.\n', mdl, max_dial, perc95d)
+        logger.info('Dial length: %4d.\nDial turn len %4d.\n95-percentil %4d.\n', mdl, max_dial, perc95d)
 
         entities = [[db.extract_entities(turn) for turn in d] for d in dialogs]  
 

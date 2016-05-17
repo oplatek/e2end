@@ -54,15 +54,18 @@ def git_info():
     return git_dict
 
 
-def setup_logging(filename):
+def setup_logging(filename, console_level=logging.INFO):
     logging.basicConfig(level=logging.DEBUG, filename=filename)
+    if isinstance(console_level, str):
+        console_level = logging.getLevelName(console_level)
     console = logging.StreamHandler()
-    console.setLevel(logging.DEBUG)
+    console.setLevel(console_level)
     logging.getLogger('').addHandler(console)
 
 
 @contextmanager
 def elapsed_timer():
+    # FIXME rewrite it to use object with __call__ and continue=True arg so it can measure repated statements
     start = default_timer()
     finished_at = None
 
