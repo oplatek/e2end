@@ -39,3 +39,4 @@ Todo
 - rnn.rnn(sequence_length=sequence_length) use mask for the not used outputs
 - investigate indexed_sliced
 - Mixer can be easily (thanks for Jindra's inspiration) used on top of xent
+- better options loader combine with configs from Alex and https://pypi.python.org/pypi/json-cfg
