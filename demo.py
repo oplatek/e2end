@@ -111,17 +111,17 @@ if __name__ == "__main__":
     c.epochs = 20000
     c.learning_rate = 0.0005
     c.max_gradient_norm = 5.0
-    c.validate_every = 200
-    c.train_loss_every = 100
-    c.sample_every = 200
+    c.validate_every = 100
+    c.train_loss_every = 1000
+    c.sample_every = 100
     c.batch_size = 1
     c.dev_batch_size = 1
-    c.embedding_size=20
+    c.embedding_size= 20
     c.dropout = 1.0
     c.db_dropout = 1.0
     c.feat_embed_size = 2
     c.nbest_models=3
-    c.not_change_limit = 20  # FIXME Be sure that we compare models from different epochs
+    c.not_change_limit = 100  # FIXME Be sure that we compare models from different epochs
     c.encoder_layers = 1
     c.decoder_layers = 1
     c.sample_unk = 0
@@ -135,6 +135,7 @@ if __name__ == "__main__":
     logger = logging.getLogger(__name__)
 
     random.seed(c.seed)
+    tf.set_random_seed(c.seed)
 
     db = Dstc2DB(c.db_file)
     train = Dstc2(c.train_file, db, sample_unk=c.sample_unk, first_n=2 * c.batch_size)
