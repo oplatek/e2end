@@ -6,7 +6,7 @@ Training script for end2end dialog training.
 """
 import logging, uuid, random, os, argparse
 import tensorflow as tf
-from e2end.utils import Config, git_info, setup_logging, Accumulator, elapsed_timer, launch_tensorboard
+from e2end.utils import Config, git_info, setup_logging, elapsed_timer, launch_tensorboard
 from e2end.training import EarlyStopper
 from e2end.dataset.dstc2 import Dstc2, Dstc2DB
 import e2end.model
@@ -52,7 +52,7 @@ def training(sess, m, db, train, dev, config, train_writer, dev_writer):
                         else:
                             input_fd[feat.name] = train.word_entities[i:i+1, t, k - 1, :]
 
-                    if step % c.sample_every == 0:
+                    if step % c.train_sample_every == 0:
                         tr_step_outputs = m.eval_step(sess, input_fd, labels_dt)
                         m.log('train', train_writer, input_fd, tr_step_outputs, e, step, dstc2_set=train, labels_dt=labels_dt)
                     elif step % c.train_loss_every == 0:
@@ -62,9 +62,8 @@ def training(sess, m, db, train, dev, config, train_writer, dev_writer):
                         m.train_step(sess, input_fd, labels_dt, log_output=False)
 
                     if step % c.validate_every == 0:
-                        # FIXME run validation on full validation set instead
-                        tr_step_outputs = m.eval_step(sess, input_fd, labels_dt)
-                        stopper_reward = -tr_step_outputs['loss']
+                        dev_avg_turn_loss = validate(m, dev, e, step, sess, dev_writer)
+                        stopper_reward = - dev_avg_turn_loss
                         if not stopper.save_and_check(stopper_reward, step, sess):
                             raise RuntimeError('Training not improving on train set')  # FIXME validate on dev set
 
@@ -75,20 +74,42 @@ def training(sess, m, db, train, dev, config, train_writer, dev_writer):
         logger.info('Best model with reward %7.2f form step %7d is %s' % stopper.highest_reward())
 
 
-def decode(m, dev, step, sess, i, t, dev_writer):
-    raise NotImplementedError('FIXME')
+def validate(m, dev, e, step, sess, dev_writer):
     with elapsed_timer() as valid_timer:
-        acc_log = Accumulator(['mean', 'discard', 'activations', 'discard'])
-        for di in range(dev):
-            for dt in range(dev.dial_lens[i]):
-                assert c.dev_batch_size == 1, 'not doing proper batching'
-                acc_log.add('dev', ['todo'])
-        logger.info('Decoding val set finished after %.2f s', valid_timer())
-        agg_log_vals = acc_log.aggregate()
-        dev_acc = agg_log_vals['acc']
-        logger.info('Step %7d Dev Accuracy: %.4f', step, dev_acc)
-    logger.info('Validation finished in %.2f s.', valid_timer())
-    return dev_acc
+        dialog_idx = list(range(len(dev)))
+        logger.info('Selecting randomly %d from %d for validation', len(dialog_idx), len(dev))
+        val_num, loss = 0, 0.0
+        for d, i in enumerate(dialog_idx):
+            logger.info('\nValidating dialog %04d', d)
+            for t in range(train.dial_lens[i]):
+                logger.info('Validating example %07d', val_num)
+                assert c.batch_size == 1, 'FIXME not doing proper batching'  # FIXME`l
+                labels_dt = {m.dec_targets.name: train.turn_targets[i:i+1, t, :],
+                             m.target_lens.name: train.turn_target_lens[i:i+1, t], }
+                input_fd = {m.turn_len.name: train.turn_lens[i:i+1, t],
+                            m.is_first_turn: t == 0,
+                            m.dropout_keep_prob: 1.0,
+                            m.dropout_db_keep_prob: 1.0,
+                            m.feed_previous: True,}
+                for k, feat in enumerate(m.feat_list):
+                    if k == 0:
+                        assert 'words' in feat.name, feat.name
+                        input_fd[feat.name] = train.dialogs[i:i+1, t, :]
+                    elif k == len(m.feat_list) - 1:
+                        assert 'speakerId' in feat.name, feat.name
+                        input_fd[feat.name] = train.word_speakers[i:i+1, t, :]
+                    else:
+                        input_fd[feat.name] = train.word_entities[i:i+1, t, k - 1, :]
+
+                dev_step_outputs = m.eval_step(sess, input_fd, labels_dt)
+                if val_num % c.dev_log_sample_every == 0:
+                    m.log('dev', dev_writer, input_fd, dev_step_outputs, e, step, dstc2_set=dev, labels_dt=labels_dt)
+                loss += dev_step_outputs['loss']
+                val_num += 1
+        avg_turn_loss = loss / val_num
+        logger.info('Step %7d Dev loss: %.4f', step, avg_turn_loss)
+    logger.info('Validation finished after %.2f s', valid_timer())
+    return avg_turn_loss
 
 
 if __name__ == "__main__":
@@ -113,7 +134,8 @@ if __name__ == "__main__":
     c.max_gradient_norm = 5.0
     c.validate_every = 100
     c.train_loss_every = 1000
-    c.sample_every = 100
+    c.train_sample_every = 100
+    c.dev_log_sample_every = 10
     c.batch_size = 1
     c.dev_batch_size = 1
     c.embedding_size= 20

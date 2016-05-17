@@ -25,9 +25,7 @@ class Config:
         return d
 
     def to_dict(self):
-        d = dict([(a, getattr(self, a)) for a in dir(self) if not a.startswith('__')])
-        stripped_d = {k: v for (k, v) in d.items() if not hasattr(v, '__call__')}
-        return stripped_d
+        return vars(self)
 
     def __repr__(self):
         return json.dumps(self.to_dict(), indent=2, sort_keys=True)
@@ -61,17 +59,6 @@ def setup_logging(filename):
     console = logging.StreamHandler()
     console.setLevel(logging.DEBUG)
     logging.getLogger('').addHandler(console)
-
-
-class Accumulator:
-    def __init__(self, stats_lst):
-        pass
-
-    def add(self, values):
-        pass
-
-    def aggregate(self):
-        pass
 
 
 @contextmanager

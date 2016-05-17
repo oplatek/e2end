@@ -184,7 +184,6 @@ class E2E_property_decoding():
         target_mask = [tf.squeeze(m, [1]) for m in tf.split(1, c.max_target_len, lengths2mask2d(self.target_lens, c.max_target_len))]
 
         # Take from tf/python/ops/seq2seq.py:706
-        # First calculate a concatenation of encoder outputs to put attention on.
         logger.debug('att_hidd_feat_list[0].get_shape() %s', att_hidd_feat_list[0].get_shape())
         top_states = [tf.reshape(e, [-1, 1, c.encoder_size])
                       for e in att_hidd_feat_list]  # FIXME should I change it different size that encoder_(feat) size?
@@ -201,8 +200,6 @@ class E2E_property_decoding():
         assert c.word_embed_size == c.col_emb_size, 'We are docoding one of entity.property from DB or word'
         num_decoder_symbols = total_input_vocab_size
         logger.debug('num_decoder_symbols %s', num_decoder_symbols)
-
-        # If feed_previous is a Tensor, we construct 2 graphs and use cond.
 
         def decoder(feed_previous_bool, scope='att_decoder'):
             reuse = None if feed_previous_bool else True
