@@ -4,8 +4,22 @@ End-to-End Neural Dialog
 Todo
 ----
 - ask about feed previous ODuska? Jindry? Filipa?
+- visualize decoding attentions
 - filter only DB entries in targets [focus on DB]
 - enforce decoder embeddings to be the same to DB and WORD embeddings (or make them close together - too complicated rather the same)
+    - model:410
+- add new loss in addition to 'standard' loss (which can be used to compute perplexity - actually computing perplexity would be nicer)
+    - valid row reward 
+        - check that the presented information form a row
+        - study the responses so they do not talk about multiple rows - need to study in advance
+    - matching properties
+        - 0.5 if there is correctly no DB property
+        - 0 if there there should be a DB property but it is not
+        - 0 if there is a DB property but it shouldn't be
+        - if db properties number match return: 0.5 + (0.5 * correct_properties / all_properties)
+            - the 0.5 addend easy to implement in tf - check vocab indexes
+            - the rest hard - must determine what if we care about the property and what are the matching
+                - E.g. we do not care for names if we were not ask for it but we were care for food_type=chinese because we were asked for it 
 - Should I normalize `sigmoid` attention by |DB| size?
 - I should definitely normalize RL reward per turn (or later by dialog)
 - RL
