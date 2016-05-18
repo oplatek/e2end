@@ -119,14 +119,15 @@ def word_db_embed_attention_decoder(col_embeddings, word_embeddings, c,
                                 dtype=tf.float32, scope=None,
                                 initial_state_attention=False):
     """RNN decoder with embedding and attention and a pure-decoding option.
+    decodes either words or DB entities
 
     Args:
+    col_embeddings: DB entity embeddings which can this decoder produce
+    words_embeddings: Words embeddings another type of output which can this decoder generate
     decoder_inputs: A list of 1D batch-sized int32 Tensors (decoder inputs).
     initial_state: 2D Tensor [batch_size x cell.state_size].
     attention_states: 3D Tensor [batch_size x attn_length x attn_size].
     cell: rnn_cell.RNNCell defining the cell function.
-    num_symbols: Integer, how many symbols come into the embedding.
-    embedding_size: Integer, the length of the embedding vector for each symbol.
     num_heads: Number of attention heads that read from attention_states.
     output_size: Size of the output vectors; if None, use output_size.
     output_projection: None or a pair (W, B) of output projection weights and
@@ -171,17 +172,11 @@ def word_db_embed_attention_decoder(col_embeddings, word_embeddings, c,
         proj_biases.get_shape().assert_is_compatible_with([num_symbols])
 
     assert c.word_embed_size == c.col_emb_size, 'need to stack embeddings on top of each other'
-    embeddings_packed = tf.pack(col_embeddings + [word_embeddings])
+    logger.debug('We are predicting one words from vocabs: db.column_vocab + [word_vocab]')
+    all_embeddings = tf.concat(0, col_embeddings + [word_embeddings])
 
     def embedding_lookup_w_db(symbol):
-        eq_great_idx = tf.greater_equal(vocabs_cum_start_idx_low, symbol)
-        smaller_size = tf.less(vocabs_cum_start_idx_up, symbol)
-        mask_vocab = tf.logical_and(eq_great_idx, smaller_size)
-        symbol_vocab = tf.gather_nd(tf.where(mask_vocab))
-        vocabs_first_idx = tf.gather(vocabs_cum_start_idx_low, symbol_vocab)
-        symbol_norm_id = tf.add(symbol, - vocabs_first_idx)
-        embedding = tf.gather(embeddings_packed, symbol_vocab)
-        return tf.nn.embedding_lookup(embedding, symbol_norm_id)
+        return tf.nn.embedding_lookup(all_embeddings, symbol)
 
     def _extract_argmax_and_embed(output_projection=None,
                                   update_embedding=True):

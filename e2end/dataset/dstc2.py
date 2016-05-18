@@ -23,6 +23,7 @@ class Dstc2DB:
         for j, (cv, cn) in enumerate(zip(col_vocabs, col_names)):
             for i, r in enumerate(raw_data):
                 table[i, j] = cv.get_i(r[cn])
+        logger.info('\nLoaded DB %s.shape = %s', filename, self.table.shape)
 
     @property
     def column_names(self):
@@ -167,6 +168,7 @@ class Dstc2:
                 logger.debug('Discarding whole dialog: %d', i)
 
         self._dial_lens = np.array(dial_lens)
+        logger.info('\nLoaded dataset len(%s): %d', filename, len(self))
 
     def _extract_vocab_ids(self, target_words):
         '''Heuristic how to recognize named entities from DB in sentence and
