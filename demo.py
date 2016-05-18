@@ -22,6 +22,8 @@ def training(sess, m, db, train, dev, config, train_writer, dev_writer):
 
     logger.info('Load DB data')
     sess.run(m.db_rows.initializer, {m.db_row_initializer: db.table})
+    sess.run(m.vocabs_cum_start_idx_low.initializer, {m.vocabs_cum_start_initializer: list(train.word_vocabs_downlimit.values())})
+    sess.run(m.vocabs_cum_start_idx_up.initializer, {m.vocabs_cum_start_initializer: list(train.word_vocabs_uplimit.values())})
 
     try:
         step = 0
@@ -70,9 +72,9 @@ def training(sess, m, db, train, dev, config, train_writer, dev_writer):
 
                     step += 1
     finally:
-        stopper.saver.save(sess=sess, save_path='%s-FINAL-%.4f-step-%07d' % (stopper.saver_prefix, stopper_reward, step))
         logger.info('Training stopped after %7d steps and %7.2f epochs. See logs for %s', step, step / len(train), config.train_dir)
-        logger.info('Best model with reward %7.2f form step %7d is %s' % stopper.highest_reward())
+        logger.info('Saving current state.\nBest model has reward %7.2f form step %7d is %s' % stopper.highest_reward())
+        stopper.saver.save(sess=sess, save_path='%s-FINAL-%.4f-step-%07d' % (stopper.saver_prefix, stopper_reward, step))
 
 
 def validate(m, dev, e, step, sess, dev_writer):
@@ -91,7 +93,8 @@ def validate(m, dev, e, step, sess, dev_writer):
                             m.is_first_turn: t == 0,
                             m.dropout_keep_prob: 1.0,
                             m.dropout_db_keep_prob: 1.0,
-                            m.feed_previous: True,}
+                            m.feed_previous: True}
+                # FIXME m.feed_previous should be True
                 for k, feat in enumerate(m.feat_list):
                     if k == 0:
                         assert 'words' in feat.name, feat.name
@@ -145,6 +148,7 @@ if __name__ == "__main__":
     parser.add_argument('--sample_unk', default=0)
     parser.add_argument('--encoder_size', default=20)
     parser.add_argument('--fast-comp', action='store_true', default=False)
+    parser.add_argument('--initial-state-attention', action='store_false', default=True, help='Used for resuming decoding from previous round, kind of what we are doing here')
 
     c = parser.parse_args()
     conf_dict = load_configs(c.config)
@@ -170,7 +174,7 @@ if __name__ == "__main__":
 
     random.seed(c.seed)
     tf.set_random_seed(c.seed)
-    
+
     with elapsed_timer() as preprocess_timer:
         db = Dstc2DB(c.db_file)
         train = Dstc2(c.train_file, db, sample_unk=c.sample_unk, first_n=None)
@@ -214,4 +218,4 @@ if __name__ == "__main__":
         dev_writer = tf.train.SummaryWriter(c.train_dir + '/dev', sess.graph)
         logger.debug('Loading session took %.2f', sess_timer())
         training(sess, m, db, train, dev, c, train_writer, dev_writer)
-        # TODO if decode only load the model parameter and test it
+    # TODO if decode only load the model parameter and test it

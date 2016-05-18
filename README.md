@@ -3,8 +3,9 @@ End-to-End Neural Dialog
 
 Todo
 ----
-- ask about feed previous ODuska? Jindry? Filipa?
+- ask about feed previous ODuska? Jindry? Filipa? - but first read http://arxiv.org/abs/1506.03099
 - visualize decoding attentions
+- copy bleu from Jindras and copy perplexity from TF translate. Rouge?
 - filter only DB entries in targets [focus on DB]
 - enforce decoder embeddings to be the same to DB and WORD embeddings (or make them close together - too complicated rather the same)
     - model:410
@@ -43,7 +44,6 @@ Todo
 - investigate indexed_sliced
 - Mixer can be easily (thanks for Jindra's inspiration) used on top of xent
 - better options loader combine with configs from Alex and https://pypi.python.org/pypi/json-cfg
-
 
 
 Nice examples
