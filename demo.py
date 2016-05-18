@@ -68,7 +68,7 @@ def training(sess, m, db, train, dev, config, train_writer, dev_writer):
                         dev_avg_turn_loss = validate(m, dev, e, step, sess, dev_writer)
                         stopper_reward = - dev_avg_turn_loss
                         if not stopper.save_and_check(stopper_reward, step, sess):
-                            raise RuntimeError('Training not improving on train set')  # FIXME validate on dev set
+                            raise RuntimeError('Training not improving on train set')
 
                     step += 1
     finally:
@@ -84,12 +84,12 @@ def validate(m, dev, e, step, sess, dev_writer):
         val_num, loss = 0, 0.0
         for d, i in enumerate(dialog_idx):
             logger.info('\nValidating dialog %04d', d)
-            for t in range(train.dial_lens[i]):
+            for t in range(dev.dial_lens[i]):
                 logger.info('Validating example %07d', val_num)
-                assert c.batch_size == 1, 'FIXME not doing proper batching'  # FIXME`l
-                labels_dt = {m.dec_targets.name: train.turn_targets[i:i+1, t, :],
-                             m.target_lens.name: train.turn_target_lens[i:i+1, t], }
-                input_fd = {m.turn_len.name: train.turn_lens[i:i+1, t],
+                assert c.batch_size == 1, 'FIXME not doing proper batching'
+                labels_dt = {m.dec_targets.name: dev.turn_targets[i:i+1, t, :],
+                             m.target_lens.name: dev.turn_target_lens[i:i+1, t], }
+                input_fd = {m.turn_len.name: dev.turn_lens[i:i+1, t],
                             m.is_first_turn: t == 0,
                             m.dropout_keep_prob: 1.0,
                             m.dropout_db_keep_prob: 1.0,
@@ -97,12 +97,12 @@ def validate(m, dev, e, step, sess, dev_writer):
                 for k, feat in enumerate(m.feat_list):
                     if k == 0:
                         assert 'words' in feat.name, feat.name
-                        input_fd[feat.name] = train.dialogs[i:i+1, t, :]
+                        input_fd[feat.name] = dev.dialogs[i:i+1, t, :]
                     elif k == len(m.feat_list) - 1:
                         assert 'speakerId' in feat.name, feat.name
-                        input_fd[feat.name] = train.word_speakers[i:i+1, t, :]
+                        input_fd[feat.name] = dev.word_speakers[i:i+1, t, :]
                     else:
-                        input_fd[feat.name] = train.word_entities[i:i+1, t, k - 1, :]
+                        input_fd[feat.name] = dev.word_entities[i:i+1, t, k - 1, :]
 
                 dev_step_outputs = m.eval_step(sess, input_fd, labels_dt)
                 if val_num % c.dev_log_sample_every == 0:
@@ -123,14 +123,14 @@ if __name__ == "__main__":
     parser.add_argument('--train-dir', default=None)
     parser.add_argument('--seed', type=int, default=123)
     parser.add_argument('--log-console-level', default="INFO")
-    parser.add_argument('--train-file', default='./data/artificial/data.dstc2.example1.json')
-    parser.add_argument('--db_file', default='./data/artificial/data.dstc2.orthogonal7rowdb.json')
-    parser.add_argument('--dev_file', default='./data/artificial/data.dstc2.example1.json')
+    parser.add_argument('--train-file', default='./data/dstc2/data.dstc2.train.json')
+    parser.add_argument('--dev_file', default='./data/dstc2/data.dstc2.dev.json')
+    parser.add_argument('--db_file', default='./data/dstc2/data.dstc2.db.json')
     parser.add_argument('--word-embed-size', type=int, default=10)
     parser.add_argument('--epochs', default=20000)
     parser.add_argument('--learning_rate', default=0.0005)
     parser.add_argument('--max_gradient_norm', default=5.0)
-    parser.add_argument('--validate_every', default=100)
+    parser.add_argument('--validate_every', default=500)
     parser.add_argument('--train_loss_every', default=1000)
     parser.add_argument('--train_sample_every', default=100)
     parser.add_argument('--dev_log_sample_every', default=10)
@@ -148,6 +148,8 @@ if __name__ == "__main__":
     parser.add_argument('--encoder_size', default=20)
     parser.add_argument('--fast-comp', action='store_true', default=False)
     parser.add_argument('--initial-state-attention', action='store_false', default=True, help='Used for resuming decoding from previous round, kind of what we are doing here')
+    parser.add_argument('--train-first-n', type=int, default=None)
+    parser.add_argument('--dev-first-n', type=int, default=None)
 
     c = parser.parse_args()
     conf_dict = load_configs(c.config)
@@ -176,13 +178,13 @@ if __name__ == "__main__":
 
     with elapsed_timer() as preprocess_timer:
         db = Dstc2DB(c.db_file)
-        train = Dstc2(c.train_file, db, sample_unk=c.sample_unk, first_n=None)
+        train = Dstc2(c.train_file, db, sample_unk=c.sample_unk, first_n=c.train_first_n)
         dev = Dstc2(c.dev_file, db,
                 words_vocab=train.words_vocab,
                 max_turn_len=train.max_turn_len,
                 max_dial_len=train.max_dial_len,
                 max_target_len=train.max_target_len,
-                first_n=100)
+                first_n=c.dev_first_n)
     logger.info('Data loaded in %.2f s', preprocess_timer())
 
     logger.info('Saving config and vocabularies')
