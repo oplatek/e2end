@@ -205,9 +205,10 @@ class E2E_property_decoding():
 
         def decoder(feed_previous_bool, scope='att_decoder'):
             reuse = None if feed_previous_bool else True
+            logger.debug('Since our decoder_inputs are in fact targets we feed targets without EOS')
             with tf.variable_scope(scope, reuse=reuse):
                 outputs, state = embedding_attention_decoder(
-                    decoder_inputs, encoded_state, attention_states, decoder_cell,
+                    decoder_inputs[:-1], encoded_state, attention_states, decoder_cell,
                     num_decoder_symbols, c.word_embed_size, num_heads=1,
                     feed_previous=feed_previous_bool,
                     update_embedding_for_previous=True,
@@ -247,7 +248,7 @@ class E2E_property_decoding():
         with tf.variable_scope('loss'), elapsed_timer() as loss_timer:
             # TODO load reward and implement mixer
             logger.debug('decoder_inputs are targets shifted by one')
-            self.loss = tf.nn.seq2seq.sequence_loss(dec_logitss[1:], decoder_inputs[1:], target_mask, softmax_loss_function=None)
+            self.loss = tf.nn.seq2seq.sequence_loss(dec_logitss, decoder_inputs[1:], target_mask, softmax_loss_function=None)
             self._optimizer = opt = tf.train.AdamOptimizer(c.learning_rate)
             self.global_step = tf.Variable(0, name='global_step', trainable=False)
             tf.scalar_summary(self.loss.op.name + 'loss', self.loss)

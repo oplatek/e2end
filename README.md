@@ -3,7 +3,6 @@ End-to-End Neural Dialog
 
 Todo
 ----
-- ask about feed previous ODuska? Jindry? Filipa? - but first read http://arxiv.org/abs/1506.03099
 - visualize decoding attentions
 - copy bleu from Jindras and copy perplexity from TF translate. Rouge?
 - filter only DB entries in targets [focus on DB]
@@ -72,3 +71,4 @@ DONE
         - `cumsummin = [0] + cumsummax[:-1]`
         - `mask_vocabs = min(1, max(i - cumsummin, 0) * max(cumsummax - i, 0))`
         - `vocab_index = argmax(mask_vocabs)`
+    - ask about feed previous ODuska? Jindry? Filipa? - but first read http://arxiv.org/abs/1506.03099 [DONE] Fixed stupid bug
