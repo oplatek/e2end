@@ -1,14 +1,16 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-import json
-import subprocess
-import os
-import logging
+import json, subprocess, os, logging, math
 from contextlib import contextmanager
 from timeit import default_timer
 
 
 logger = logging.getLogger(__name__)
+
+
+def sigmoid(x):
+    return 1 / (1 + math.exp(-x))
+
 
 def update_config(c, d):
     for k, v in d.items():
@@ -22,8 +24,28 @@ def load_configs(configs):
         config.update(c)
     return config
 
+
+def time2batch(decoder_outputs):
+    bsize = len(decoder_outputs[0])
+    bouts = [[] for i in range(bsize)]
+    # transpose time x batch -> batch_size
+    for tout in decoder_outputs:
+        for b in range(bsize):
+            bouts[b].append(tout[b])
+    return bouts
+
+
+def trim_decoded(decoded_words, EOS_ID):
+    try:
+        idx = decoded_words.index(EOS_ID)
+        return idx, decoded_words[:idx]
+    except ValueError:
+        return len(decoded_words), decoded_words
+
+
 def save_config(c, filename):
     json.dump(vars(c), open(filename, 'w'), indent=4, sort_keys=True)
+
 
 def git_info():
     head, diff, remote = None, None, None

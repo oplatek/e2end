@@ -3,6 +3,7 @@ End-to-End Neural Dialog
 
 Todo
 ----
+- initialize targets with EOS so it predicts always EOS after first one
 - visualize decoding attentions
 - copy bleu from Jindras and copy perplexity from TF translate. Rouge?
 - filter only DB entries in targets [focus on DB]
@@ -41,17 +42,24 @@ Todo
     - visualize attentions - e.g. via https://www.youtube.com/watch?v=VcoVEvGEmFM
 - rnn.rnn(sequence_length=sequence_length) use mask for the not used outputs
 - investigate indexed_sliced
-- Mixer can be easily (thanks for Jindra's inspiration) used on top of xent
+- Mixer can be easily (thanks for Jindra's implementation) used on top of xent
 - better options loader combine with configs from Alex and https://pypi.python.org/pypi/json-cfg
+- implement batches first, than Batch normalization http://stackoverflow.com/questions/33949786/how-could-i-use-batch-normalization-in-tensorflow?rq=1
+- better tensorflow logging with `tf.merge_summary(tf.get_collection("summary_val"))`
 
 
 Nice examples
 -------------
 
-enc-dec problem 
+- plain enc-dec  
 inp 0008800,00: Hello , welcome to the Cambridge restaurant system? You can ask for restaurants by area , price range or food type . How may I help you? id like an expensive restaurant that serves bat food
 dec 0008800,00: Ok I'm sorry but there is no restaurant serving australian food EOS
 trg 0008800,00: I'm sorry but there is no restaurant serving basque food EOS
+
+- plain enc-dec  
+inp 0052000,00: anatolia serves turkish food in the moderate price range what is the phone number and address
+dec 0052000,00: The phone number of meghna is 01223 727410 . EOS
+trg 0052000,00: The phone number of anatolia is 01223 362372 and it is on 30 Bridge Street City Centre . EOS
 
 
 DONE

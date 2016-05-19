@@ -4,7 +4,7 @@
 Training script for end2end dialog training.
 
 """
-import logging, random, os, argparse
+import logging, random, os, argparse, sys
 from datetime import datetime
 import tensorflow as tf
 from e2end.utils import update_config, load_configs, save_config, git_info, setup_logging, elapsed_timer, launch_tensorboard
@@ -26,7 +26,6 @@ def training(sess, m, db, train, dev, config, train_writer, dev_writer):
     sess.run(m.vocabs_cum_start_idx_up.initializer, {m.vocabs_cum_start_initializer: list(train.word_vocabs_uplimit.values())})
 
     try:
-        step = 0
         dialog_idx = list(range(len(train)))
         logger.info('training set size: %d', len(dialog_idx))
         for e in range(c.epochs):
@@ -35,16 +34,14 @@ def training(sess, m, db, train, dev, config, train_writer, dev_writer):
             for d, i in enumerate(dialog_idx):
                 logger.info('\nDialog %d', d)
                 for t in range(train.dial_lens[i]):
-                    logger.info('Step %d', step)
                     assert c.batch_size == 1, 'FIXME not doing proper batching'  # FIXME
-                    labels_dt = {m.dec_targets.name: train.turn_targets[i:i+1, t, :],
-                                 m.target_lens.name: train.turn_target_lens[i:i+1, t], }
                     input_fd = {m.turn_len.name: train.turn_lens[i:i+1, t],
                                 m.is_first_turn: t == 0,
                                 m.dropout_keep_prob: c.dropout,
                                 m.dropout_db_keep_prob: c.db_dropout,
                                 m.feed_previous: False,
-                                }
+                                m.dec_targets.name: train.turn_targets[i:i+1, t, :],
+                                m.target_lens.name: train.turn_target_lens[i:i+1, t], }
                     for k, feat in enumerate(m.feat_list):
                         if k == 0:
                             assert 'words' in feat.name, feat.name
@@ -55,29 +52,27 @@ def training(sess, m, db, train, dev, config, train_writer, dev_writer):
                         else:
                             input_fd[feat.name] = train.word_entities[i:i+1, t, k - 1, :]
 
-                    if step % c.train_sample_every == 0:
-                        tr_step_outputs = m.eval_step(sess, input_fd, labels_dt)
-                        m.log('train', train_writer, input_fd, tr_step_outputs, e, step, dstc2_set=train, labels_dt=labels_dt)
-                    elif step % c.train_loss_every == 0:
-                        tr_step_outputs = m.train_step(sess, input_fd, labels_dt, log_output=True)
-                        m.log('train', train_writer, input_fd, tr_step_outputs, e, step, dstc2_set=train, labels_dt=labels_dt)
+                    if m.step % c.train_sample_every == 0:
+                        tr_step_outputs = m.eval_step(sess, input_fd)
+                        m.log('train', train_writer, input_fd, tr_step_outputs, e, dstc2_set=train, labels_dt=input_fd)
+                    elif m.step % c.train_loss_every == 0:
+                        tr_step_outputs = m.train_step(sess, input_fd, log_output=True)
+                        m.log('train', train_writer, input_fd, tr_step_outputs, e, dstc2_set=train, labels_dt=input_fd)
                     else:
-                        m.train_step(sess, input_fd, labels_dt, log_output=False)
+                        m.train_step(sess, input_fd, log_output=False)
 
-                    if step % c.validate_every == 0:
-                        dev_avg_turn_loss = validate(m, dev, e, step, sess, dev_writer)
+                    if m.step % c.validate_every == 0:
+                        dev_avg_turn_loss = validate(sess, m, dev, e, dev_writer)
                         stopper_reward = - dev_avg_turn_loss
-                        if not stopper.save_and_check(stopper_reward, step, sess):
+                        if not stopper.save_and_check(stopper_reward, m.step, sess):
                             raise RuntimeError('Training not improving on train set')
-
-                    step += 1
     finally:
-        logger.info('Training stopped after %7d steps and %7.2f epochs. See logs for %s', step, step / len(train), config.train_dir)
+        logger.info('Training stopped after %7d steps and %7.2f epochs. See logs for %s', m.step, m.step / len(train), config.train_dir)
         logger.info('Saving current state. Please wait!\nBest model has reward %7.2f form step %7d is %s' % stopper.highest_reward())
-        stopper.saver.save(sess=sess, save_path='%s-FINAL-%.4f-step-%07d' % (stopper.saver_prefix, stopper_reward, step))
+        stopper.saver.save(sess=sess, save_path='%s-FINAL-%.4f-step-%07d' % (stopper.saver_prefix, stopper_reward, m.step))
 
 
-def validate(m, dev, e, step, sess, dev_writer):
+def validate(sess, m, dev, e, dev_writer):
     with elapsed_timer() as valid_timer:
         dialog_idx = list(range(len(dev)))
         logger.info('Selecting randomly %d from %d for validation', len(dialog_idx), len(dev))
@@ -87,13 +82,13 @@ def validate(m, dev, e, step, sess, dev_writer):
             for t in range(dev.dial_lens[i]):
                 logger.info('Validating example %07d', val_num)
                 assert c.batch_size == 1, 'FIXME not doing proper batching'
-                labels_dt = {m.dec_targets.name: dev.turn_targets[i:i+1, t, :],
-                             m.target_lens.name: dev.turn_target_lens[i:i+1, t], }
                 input_fd = {m.turn_len.name: dev.turn_lens[i:i+1, t],
                             m.is_first_turn: t == 0,
                             m.dropout_keep_prob: 1.0,
                             m.dropout_db_keep_prob: 1.0,
-                            m.feed_previous: True}
+                            m.feed_previous: True,
+                             m.dec_targets.name: dev.turn_targets[i:i+1, t, :],
+                             m.target_lens.name: dev.turn_target_lens[i:i+1, t], }
                 for k, feat in enumerate(m.feat_list):
                     if k == 0:
                         assert 'words' in feat.name, feat.name
@@ -104,13 +99,13 @@ def validate(m, dev, e, step, sess, dev_writer):
                     else:
                         input_fd[feat.name] = dev.word_entities[i:i+1, t, k - 1, :]
 
-                dev_step_outputs = m.eval_step(sess, input_fd, labels_dt)
+                dev_step_outputs = m.eval_step(sess, input_fd)
                 if val_num % c.dev_log_sample_every == 0:
-                    m.log('dev', dev_writer, input_fd, dev_step_outputs, e, step, dstc2_set=dev, labels_dt=labels_dt)
+                    m.log('dev', dev_writer, input_fd, dev_step_outputs, e, dstc2_set=dev, labels_dt=input_fd)
                 loss += dev_step_outputs['loss']
                 val_num += 1
         avg_turn_loss = loss / val_num
-        logger.info('Step %7d Dev loss: %.4f', step, avg_turn_loss)
+        logger.info('Step %7d Dev loss: %.4f', m.step, avg_turn_loss)
     logger.info('Validation finished after %.2f s', valid_timer())
     return avg_turn_loss
 
@@ -119,6 +114,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(__doc__)
     parser.add_argument('--config', nargs='*', default=[])
     parser.add_argument('--exp', default='exp')
+    parser.add_argument('--validate-to-dir', default=None)
     parser.add_argument('--use-db-encoder', action='store_true', default=False)
     parser.add_argument('--train-dir', default=None)
     parser.add_argument('--seed', type=int, default=123)
@@ -131,6 +127,8 @@ if __name__ == "__main__":
     parser.add_argument('--learning_rate', default=0.0005)
     parser.add_argument('--max_gradient_norm', default=5.0)
     parser.add_argument('--validate_every', default=500)
+    parser.add_argument('--reinforce_first_step', default=sys.maxsize)
+    parser.add_argument('--reinforce_next_step', default=5000)
     parser.add_argument('--train_loss_every', default=1000)
     parser.add_argument('--train_sample_every', default=100)
     parser.add_argument('--dev_log_sample_every', default=10)
@@ -138,6 +136,7 @@ if __name__ == "__main__":
     parser.add_argument('--dev_batch_size', default=1)
     parser.add_argument('--embedding_size', default=20)
     parser.add_argument('--dropout', default=1.0)
+    parser.add_argument('--reward-moving-arg-decay', default=0.99)
     parser.add_argument('--db_dropout', default=1.0)
     parser.add_argument('--feat_embed_size', default=2)
     parser.add_argument('--nbest_models', default=3)
@@ -168,6 +167,8 @@ if __name__ == "__main__":
     c.mlp_db_embed_l1_size = 6 * 10 * c.col_emb_size
 
     os.makedirs(os.path.dirname(c.name), exist_ok=True)
+    if c.validate_to_dir is not None:
+        c.log_name = os.path.join(c.validate_to_dir, os.path.basename(c.log_name))
     setup_logging(c.log_name, console_level=c.log_console_level)
     logger = logging.getLogger(__name__)
     logger.debug('Computed also config values on the fly and merged values from config and command line arguments')
@@ -216,7 +217,11 @@ if __name__ == "__main__":
 
     with elapsed_timer() as sess_timer, tf.Session() as sess:
         train_writer = tf.train.SummaryWriter(c.train_dir + '/train', sess.graph)
-        dev_writer = tf.train.SummaryWriter(c.train_dir + '/dev', sess.graph)
         logger.debug('Loading session took %.2f', sess_timer())
-        training(sess, m, db, train, dev, c, train_writer, dev_writer)
-    # TODO if decode only load the model parameter and test it
+        if c.validate_to_dir is not None:
+            logger.info('Just launching validation and NO training')
+            dev_writer = tf.train.SummaryWriter(c.validate_to_dir, sess.graph)
+            validate(sess, m, dev, -666, dev_writer)
+        else:
+            dev_writer = tf.train.SummaryWriter(c.train_dir + '/dev', sess.graph)
+            training(sess, m, db, train, dev, c, train_writer, dev_writer)

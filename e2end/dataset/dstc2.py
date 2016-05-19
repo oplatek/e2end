@@ -122,17 +122,17 @@ class Dstc2:
         maxtarl, perc95t = t[-1], t[int(0.95 * len(s))]
         self._max_target_len = mtarl = max_target_len or maxtarl
         logger.info('Target len: %4d.\nMax target len %4d.\n95-percentil %4d.\n', maxtarl, mtarl, perc95t)
-        self._turn_targets = ttarg = np.zeros((len(dialogs), mdl, mtarl), dtype=np.int64)
+        self._turn_targets = ttarg = words_vocab.get_i(EOS) * np.ones((len(dialogs), mdl, mtarl), dtype=np.int64)
         self._turn_target_lens = np.zeros((len(dialogs), mdl), dtype=np.int64)
         self._word_speakers = w_spk = np.zeros((len(dialogs), mdl, mtl), dtype=np.int64)
 
         tmp1, tmp2 = db.column_names + ['words'], db.col_vocabs + [words_vocab]
-        self._target_vocabs = OrderedDict(zip(tmp1, tmp2))
+        self.target_vocabs = OrderedDict(zip(tmp1, tmp2))
         self.word_vocabs_uplimit = OrderedDict(
-            zip(self._target_vocabs.keys(),
-                np.cumsum([len(voc) for voc in self._target_vocabs.values()])))
+            zip(self.target_vocabs.keys(),
+                np.cumsum([len(voc) for voc in self.target_vocabs.values()])))
         self.word_vocabs_downlimit = OrderedDict(
-            zip(self._target_vocabs.keys(),
+            zip(self.target_vocabs.keys(),
                 [0] + list(self.word_vocabs_uplimit.values())[:-1]))
 
         dial_lens = []
@@ -180,7 +180,7 @@ class Dstc2:
                 skip_words_of_entity -= 1
                 continue
             w_found = False
-            for vocab_name, vocab in self._target_vocabs.items():
+            for vocab_name, vocab in self.target_vocabs.items():
                 if vocab_name == 'words':
                     continue
                 for ent in vocab.words():
@@ -207,7 +207,7 @@ class Dstc2:
         vocab_id = bisect.bisect(vocab_up_idx, w_id)
         vocab_name = list(self.word_vocabs_uplimit.keys())[vocab_id]
         w_id_in_vocab = w_id - self.word_vocabs_downlimit[vocab_name]
-        return vocab_name, self._target_vocabs[vocab_name].get_w(w_id_in_vocab)
+        return vocab_name, self.target_vocabs[vocab_name].get_w(w_id_in_vocab)
 
     def __len__(self):
         '''Number of dialogs valid in other variables'''
