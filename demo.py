@@ -62,7 +62,8 @@ def training(sess, m, db, train, dev, config, train_writer, dev_writer):
                         m.train_step(sess, input_fd)
 
                     if m.step % c.validate_every == 0:
-                        dev_avg_turn_loss = validate(sess, m, dev, e, dev_writer)
+                        dev_ag_turn_reward, dev_avg_turn_loss = validate(sess, m, dev, e, dev_writer)
+                        # FIXME early stopping when switching from exent to RL
                         stopper_reward = - dev_avg_turn_loss
                         if not stopper.save_and_check(stopper_reward, m.step, sess):
                             raise RuntimeError('Training not improving on train set')
@@ -76,7 +77,7 @@ def validate(sess, m, dev, e, dev_writer):
     with elapsed_timer() as valid_timer:
         dialog_idx = list(range(len(dev)))
         logger.info('Selecting randomly %d from %d for validation', len(dialog_idx), len(dev))
-        val_num, reward = 0, 0.0
+        val_num, reward, loss = 0, 0.0, 0.0
         for d, i in enumerate(dialog_idx):
             logger.info('\nValidating dialog %04d', d)
             for t in range(dev.dial_lens[i]):
@@ -105,11 +106,13 @@ def validate(sess, m, dev, e, dev_writer):
                 else:
                     dev_step_outputs = m.eval_step(sess, input_fd)
                 reward += dev_step_outputs['reward']
+                loss += dev_step_outputs['loss']
                 val_num += 1
-        avg_turn_loss = reward / val_num
-        logger.info('Step %7d Dev loss: %.4f', m.step, avg_turn_loss)
+        avg_turn_reward = reward / val_num
+        avg_turn_loss = loss / val_num
+        logger.info('Step %7d Dev reward: %.4f, loss: %.4f', m.step, avg_turn_reward, avg_turn_loss)
     logger.info('Validation finished after %.2f s', valid_timer())
-    return avg_turn_loss
+    return avg_turn_reward, avg_turn_loss
 
 
 if __name__ == "__main__":

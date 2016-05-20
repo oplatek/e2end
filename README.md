@@ -3,12 +3,12 @@ End-to-End Neural Dialog
 
 Todo
 ----
-- initialize targets with EOS so it predicts always EOS after first one
-- visualize decoding attentions
-- copy bleu from Jindras and copy perplexity from TF translate. Rouge?
-- filter only DB entries in targets [focus on DB]
 - enforce decoder embeddings to be the same to DB and WORD embeddings (or make them close together - too complicated rather the same)
-    - model:410
+    - model:410 - TODO TEST
+- reward function based on the dialog state
+- filter only DB entries in targets [focus on DB]
+- visualize decoding attentions
+-  perplexity from TF translate. Rouge?
 - add new loss in addition to 'standard' loss (which can be used to compute perplexity - actually computing perplexity would be nicer)
     - valid row reward 
         - check that the presented information form a row
@@ -80,3 +80,5 @@ DONE
         - `mask_vocabs = min(1, max(i - cumsummin, 0) * max(cumsummax - i, 0))`
         - `vocab_index = argmax(mask_vocabs)`
     - ask about feed previous ODuska? Jindry? Filipa? - but first read http://arxiv.org/abs/1506.03099 [DONE] Fixed stupid bug
+- initialize targets with EOS so it predicts always EOS after first one [DONE]
+- bleu from nltk copy  [DONE]

@@ -352,7 +352,7 @@ class E2E_property_decoding():
         if log_output:
             output_feed = self.dec_outputs + self.dec_vocab_idss_op + self.trg_vocab_idss_op + [self.loss, self.summarize]
         else:
-            output_feed = self.dec_outputs + self.dec_vocab_idss_op + self.trg_vocab_idss_op
+            output_feed = self.dec_outputs + self.dec_vocab_idss_op + self.trg_vocab_idss_op + [self.loss]
 
         out_vals = sess.run(output_feed, eval_dict)
         mtl = c.max_turn_len
@@ -360,6 +360,7 @@ class E2E_property_decoding():
             loss_v, sum_v = out_vals[-2], out_vals[-1]
             decoder_outs, dec_v_ids, trg_v_ids = out_vals[0:mtl], out_vals[mtl:2 * mtl], out_vals[2 * mtl: 3 * mtl]
         else:
+            loss_v = out_vals[-1]
             decoder_outs, dec_v_ids, trg_v_ids = out_vals[0:mtl], out_vals[mtl:2 * mtl], out_vals[2 * mtl: 3 * mtl]
 
         l_ds = [trim_decoded(utt, c.EOS_ID) for utt in time2batch(decoder_outs)]
@@ -373,7 +374,7 @@ class E2E_property_decoding():
         w_eval_func_vals = [w * v for w, v in zip(c.eval_func_weights, eval_func_vals)]
         reward = sum(w_eval_func_vals)
 
-        ret_dir = {'reward': reward}
+        ret_dir = {'loss': loss_v, 'reward': reward}
         if log_output:
             func_names=[f.__name__ for f in self.eval_functions]
             eval_f_vals_dict = dict(zip(func_names, eval_func_vals))
@@ -385,7 +386,7 @@ class E2E_property_decoding():
             total_sum.MergeFrom(sum_func_val)
             total_sum.MergeFrom(sum_wfunc_val)
             total_sum.MergeFromString(sum_v)
-            ret_dir.update({'loss': loss_v, 'summarize': total_sum, 'decoder_outputs': decoder_outs})
+            ret_dir.update({'summarize': total_sum, 'decoder_outputs': decoder_outs})
             ret_dir.update(eval_f_vals_dict)
             ret_dir.update(w_eval_f_vals_dict)
 
