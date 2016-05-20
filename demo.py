@@ -53,13 +53,13 @@ def training(sess, m, db, train, dev, config, train_writer, dev_writer):
                             input_fd[feat.name] = train.word_entities[i:i+1, t, k - 1, :]
 
                     if m.step % c.train_sample_every == 0:
-                        tr_step_outputs = m.eval_step(sess, input_fd)
+                        tr_step_outputs = m.eval_step(sess, input_fd, log_output=True)
                         m.log('train', train_writer, input_fd, tr_step_outputs, e, dstc2_set=train, labels_dt=input_fd)
                     elif m.step % c.train_loss_every == 0:
                         tr_step_outputs = m.train_step(sess, input_fd, log_output=True)
                         m.log('train', train_writer, input_fd, tr_step_outputs, e, dstc2_set=train, labels_dt=input_fd)
                     else:
-                        m.train_step(sess, input_fd, log_output=False)
+                        m.train_step(sess, input_fd)
 
                     if m.step % c.validate_every == 0:
                         dev_avg_turn_loss = validate(sess, m, dev, e, dev_writer)
@@ -76,7 +76,7 @@ def validate(sess, m, dev, e, dev_writer):
     with elapsed_timer() as valid_timer:
         dialog_idx = list(range(len(dev)))
         logger.info('Selecting randomly %d from %d for validation', len(dialog_idx), len(dev))
-        val_num, loss = 0, 0.0
+        val_num, reward = 0, 0.0
         for d, i in enumerate(dialog_idx):
             logger.info('\nValidating dialog %04d', d)
             for t in range(dev.dial_lens[i]):
@@ -99,12 +99,14 @@ def validate(sess, m, dev, e, dev_writer):
                     else:
                         input_fd[feat.name] = dev.word_entities[i:i+1, t, k - 1, :]
 
-                dev_step_outputs = m.eval_step(sess, input_fd)
                 if val_num % c.dev_log_sample_every == 0:
+                    dev_step_outputs = m.eval_step(sess, input_fd, log_output=True)
                     m.log('dev', dev_writer, input_fd, dev_step_outputs, e, dstc2_set=dev, labels_dt=input_fd)
-                loss += dev_step_outputs['loss']
+                else:
+                    dev_step_outputs = m.eval_step(sess, input_fd)
+                reward += dev_step_outputs['reward']
                 val_num += 1
-        avg_turn_loss = loss / val_num
+        avg_turn_loss = reward / val_num
         logger.info('Step %7d Dev loss: %.4f', m.step, avg_turn_loss)
     logger.info('Validation finished after %.2f s', valid_timer())
     return avg_turn_loss
@@ -114,29 +116,30 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(__doc__)
     parser.add_argument('--config', nargs='*', default=[])
     parser.add_argument('--exp', default='exp')
-    parser.add_argument('--validate-to-dir', default=None)
-    parser.add_argument('--use-db-encoder', action='store_true', default=False)
-    parser.add_argument('--train-dir', default=None)
+    parser.add_argument('--validate_to_dir', default=None)
+    parser.add_argument('--use_db_encoder', action='store_true', default=False)
+    parser.add_argument('--train_dir', default=None)
     parser.add_argument('--seed', type=int, default=123)
-    parser.add_argument('--log-console-level', default="INFO")
-    parser.add_argument('--train-file', default='./data/dstc2/data.dstc2.train.json')
+    parser.add_argument('--log_console_level', default="INFO")
+    parser.add_argument('--train_file', default='./data/dstc2/data.dstc2.train.json')
     parser.add_argument('--dev_file', default='./data/dstc2/data.dstc2.dev.json')
     parser.add_argument('--db_file', default='./data/dstc2/data.dstc2.db.json')
-    parser.add_argument('--word-embed-size', type=int, default=10)
+    parser.add_argument('--word_embed_size', type=int, default=10)
     parser.add_argument('--epochs', default=20000)
     parser.add_argument('--learning_rate', default=0.0005)
     parser.add_argument('--max_gradient_norm', default=5.0)
     parser.add_argument('--validate_every', default=500)
     parser.add_argument('--reinforce_first_step', default=sys.maxsize)
     parser.add_argument('--reinforce_next_step', default=5000)
+    parser.add_argument('--eval_func_weights', nargs='*', default=[1.0, 1.0, 1.0])
     parser.add_argument('--train_loss_every', default=1000)
+    parser.add_argument('--reward_moving_avg_decay', default=0.99)
     parser.add_argument('--train_sample_every', default=100)
     parser.add_argument('--dev_log_sample_every', default=10)
     parser.add_argument('--batch_size', default=1)
     parser.add_argument('--dev_batch_size', default=1)
     parser.add_argument('--embedding_size', default=20)
     parser.add_argument('--dropout', default=1.0)
-    parser.add_argument('--reward-moving-arg-decay', default=0.99)
     parser.add_argument('--db_dropout', default=1.0)
     parser.add_argument('--feat_embed_size', default=2)
     parser.add_argument('--nbest_models', default=3)
@@ -145,10 +148,10 @@ if __name__ == "__main__":
     parser.add_argument('--decoder_layers', default=1)
     parser.add_argument('--sample_unk', default=0)
     parser.add_argument('--encoder_size', default=20)
-    parser.add_argument('--fast-comp', action='store_true', default=False)
-    parser.add_argument('--initial-state-attention', action='store_false', default=True, help='Used for resuming decoding from previous round, kind of what we are doing here')
-    parser.add_argument('--train-first-n', type=int, default=None)
-    parser.add_argument('--dev-first-n', type=int, default=None)
+    parser.add_argument('--fast_comp', action='store_true', default=False)
+    parser.add_argument('--initial_state_attention', action='store_false', default=True, help='Used for resuming decoding from previous round, kind of what we are doing here')
+    parser.add_argument('--train_first_n', type=int, default=None)
+    parser.add_argument('--dev_first_n', type=int, default=None)
 
     c = parser.parse_args()
     conf_dict = load_configs(c.config)
@@ -189,6 +192,7 @@ if __name__ == "__main__":
     logger.info('Data loaded in %.2f s', preprocess_timer())
 
     logger.info('Saving config and vocabularies')
+    c.EOS_ID = train.words_vocab.get_i(train.EOS)
     c.col_vocab_sizes = [len(vocab) for vocab in db.col_vocabs]
     c.max_turn_len = train.max_turn_len
     c.max_target_len = train.max_target_len

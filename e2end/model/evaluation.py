@@ -7,7 +7,7 @@ bleu_smoothing = SmoothingFunction(epsilon=0.01).method1
 
 def get_bleus(referencess, wordss):
     '''Return bleu using nltk and 0.0 for empty decoded sequnces'''
-    return [sentence_bleu([r], s, smoothing_function=bleu_smoothing) if s is not None else 0.0 for r, s in zip(referencess, wordss)]
+    return [sentence_bleu([r], s, smoothing_function=bleu_smoothing) if s else 0.0 for r, s in zip(referencess, wordss)]
 
 
 def tf_lengths2mask2d(lengths, max_len):
@@ -25,17 +25,20 @@ def tf_lengths2mask2d(lengths, max_len):
     return tf.to_float(tf.less(range_tiled, lengths_tiled))
 
 
-def tf_trg_word2vocab_id(wt_arr, vocabs_cum_start_idx_low, vocabs_cum_start_idx_up):
+def tf_trg_word2vocab_id(wt_arr, vocabs_cum_start_idx_low, vocabs_cum_start_idx_up, name='tf_trg_word2vocab_id'):
     '''Map words + [EOS] to word vocab id, other entities to their
     column-slot vocab id'''
-    res = []
-    for wt in wt_arr:
-        start_idx_ok = tf.greater_equal(wt, vocabs_cum_start_idx_low)
-        end_idx_ok = tf.less(wt, vocabs_cum_start_idx_up)
-        idx_ok_mask = tf.logical_and(start_idx_ok, end_idx_ok)
-        batch_vocab_id = tf.where(idx_ok_mask)[1]
-        res.append(batch_vocab_id)
-    return res
+    with tf.variable_scope(name):
+        res = []
+        for wt in wt_arr:
+            wte = tf.expand_dims(wt, 1)
+            start_idx_ok = tf.greater_equal(wte, vocabs_cum_start_idx_low)
+            end_idx_ok = tf.less(wte, vocabs_cum_start_idx_up)
+            idx_ok_mask = tf.logical_and(start_idx_ok, end_idx_ok)
+            tf.Print(idx_ok_mask, [idx_ok_mask], message='debug idx_ok_mask', name='debug')
+            batch_vocab_id = tf.squeeze(tf.slice(tf.where(idx_ok_mask), [0, 1], [-1, 1]), [1])
+            res.append(batch_vocab_id)
+        return res
 
 
 def rouge2(decoded, references):
