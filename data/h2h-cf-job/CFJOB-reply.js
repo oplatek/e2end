@@ -10,14 +10,13 @@ require(['jquery-noconflict'], function($) {
   //jQuery goes here
 
   var role = document.getElementById("role").textContent;
+  console.log('role:' + role);
     
   if (role == 'sys') {
     $('.usronly').hide();
   } else if(role == 'usr') {
     $('.sysonly').hide();
-  } else{
-    console.log('Unknow role:' + role);
-  }
+  } 
 
   $('.checkempty').each(function() {
     if ($(this).text() == 'No data available') {
