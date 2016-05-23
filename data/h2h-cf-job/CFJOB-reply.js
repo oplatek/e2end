@@ -638,5 +638,7 @@ require(['jquery-noconflict'], function($) {
 // requestExternalValidation('', []); // FIXME uncomment
   });
 
+// FIXME try searchable table 
+// http://jsfiddle.net/giorgitbs/52ak9/1/
 
 });
