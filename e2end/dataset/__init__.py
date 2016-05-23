@@ -30,6 +30,7 @@ class Vocabulary:
         self._int2w = dict(((i, w) for i, w in enumerate(tmp)))
         self._unk_id = self._w2int[unk] if unk else -666
 
+    @property
     def words(self):
         return iter(self._w2int.keys())
 
