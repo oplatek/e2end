@@ -9,16 +9,28 @@ require(['jquery-noconflict'], function($) {
   var $ = window.jQuery;
   //jQuery goes here
 
-  var role = $('#role span').text();
+  var role = document.getElementById("role").textContent;
     
   if (role == 'sys') {
     $('.usronly').hide();
   } else if(role == 'usr') {
     $('.sysonly').hide();
   } else{
-    alert('Unknown role! ' + role);
+    console.log('Unknow role:' + role);
   }
+
+  $('.checkempty').each(function() {
+    if ($(this).text() == 'No data available') {
+        $(this).hide();
+    }
+  });
     
+
+  $('.checkemptyhistory').each(function() {
+    if ($(this).text() == 'No data available') {
+        $(this).parent().hide();
+    }
+  });
 
  
   // *****
@@ -429,11 +441,12 @@ require(['jquery-noconflict'], function($) {
       }
     }
 
-    // run the external validation, return its result
-    var fluencyData = requestExternalValidation(value, data.values);
-    fluencyField.value = JSON.stringify(fluencyData);
     return true;
-    // return fluencyData.result == 'yes'; # FIXME enable checking
+    // FIXME
+    // // run the external validation, return its result
+    // var fluencyData = requestExternalValidation(value, data.values);
+    // fluencyField.value = JSON.stringify(fluencyData);
+    // return fluencyData.result == 'yes';
   }
 
   // return error message based on local validation
@@ -622,240 +635,8 @@ require(['jquery-noconflict'], function($) {
       prepareDataItems(dataInsts[i], inputFields[i]);
     }
     // this will make it crash if the validation server is inaccessible
-    requestExternalValidation('', []);
+// requestExternalValidation('', []); // FIXME uncomment
   });
 
-var BootstrapTable = window.BootstrapTable;
-var TableHeaderColumn = window.TableHeaderColumn;
-
-var Nav = ReactBootstrap.Nav;
-var NavItem = ReactBootstrap.NavItem;
-var Navbar = ReactBootstrap.Navbar;
-var NavDropdown = ReactBootstrap.NavDropdown;
-var MenuItem = ReactBootstrap.MenuItem;
-var Table = ReactBootstrap.Table;
-var ListGroup = ReactBootstrap.ListGroup;
-var ListGroupItem = ReactBootstrap.ListGroupItem;
-var ListGroupItemText = ReactBootstrap.ListGroupItemText;
-var ProgressBar = ReactBootstrap.ProgressBar;
-var Alert = ReactBootstrap.Alert;
-var Grid = ReactBootstrap.Grid;
-var Row = ReactBootstrap.Row;
-var Col = ReactBootstrap.Col;
-var Input = ReactBootstrap.Input;
-
-var socket;
-
-var DbView;
-// row selection http://allenfang.github.io/react-bootstrap-table/example.html
-DbView = React.createClass({
-    getDefaultProps() {
-        return {
-            active: true,
-            data:[],
-            columns:[],
-            onSelectRow: function(row, isSelected) {
-                console.log('Row: ', row, ' isSelected: ', isSelected)
-            },
-            width: 600,
-        }
-    },
-    createColumn(column_json) {
-        var isKey = column_json['isKey']
-        var col_width = this.props.width / this.props.columns.length;
-        console.log('debug col_width: ', col_width);
-        return (<TableHeaderColumn width={String(col_width)} isKey={isKey} key={String(column_json)} dataField={column_json.name} filter={{type: "TextFilter", placeholder: "Filter values"}}>{column_json.text}</TableHeaderColumn>);
-    },
-    render() {
-        var selectRowProp = {
-          mode: "checkbox",
-          clickToSelect: true,
-          bgColor: "rgb(238, 193, 213)",
-          onSelect: this.props.onSelectRow,
-        };
-        return (
-        <div className="dbview">
-            <div className="column-header">
-                <h3>Find and Mark Info</h3>
-            </div>
-              <BootstrapTable data={this.props.data} striped={true} hover={true} selectRow={selectRowProp}>
-                  {this.props.columns.filter(function(c) {return !c['hide']; }).map(this.createColumn, this)}
-              </BootstrapTable>
-        </div>);
-    },
-});
-
-
-var ActionSelect;
-ActionSelect= React.createClass({
-  getInitialState() {
-    return {
-        active: true,
-        stats: {correct: 0, created: 0, errors: 0},
-        msgs:[],
-        actions: [],
-        history: [],
-        columns:[
-            {'name':'phone', text:'Phone', isKey:true},
-            {'name':'pricerange', text:'Price Range'},
-            {'name':'addr', text:'Address'},
-            {'name':'area', text:'Area'},
-            {'name':'food', text:'Food'},
-            {'name':'postcode', text:'Postcode', hide: true},
-            {'name':'name', text:'Name'},
-        ],
-        db_data:[
-            {
-                "phone": "01223 461661",
-                "pricerange": "expensive",
-                "addr": "31 newnham road newnham",
-                "area": "west",
-                "food": "indian",
-                "postcode": "not available",
-                "name": "india house"
-            },
-            {
-                "addr": "cambridge retail park newmarket road fen ditton",
-                "area": "east",
-                "food": "italian",
-                "phone": "01223 323737",
-                "pricerange": "moderate",
-                "postcode": "c b 5 8 w r",
-                "name": "pizza hut fen ditton"
-            }
-        ],
-        db_selected: {},
-        turn_reasons_from_history: [],
-    };
-
-      // add actions_valid: []
-  },
-  componentDidMount() {
-    console.log('ActionSelect mounted: dialog_id ', this.props.dialog_id, ' role ', this.props.role, 'nick', this.props.nick)
-    // $.ajax({
-    //   url: '/api/dialog/db/dstc2',
-    //   dataType: 'json',
-    //   cache: true,
-    //   success: function(db_received) {
-    //     db = db_received;
-    //   },
-    //   error: function(xhr, status, err) {
-    //     console.error(status, err.toString());
-    //   }
-    // });
-    var namespace = '/api';
-
-    socket = io.connect('http://' + document.domain + ':' + location.port + namespace);
-    socket.on('connect', function() { 
-      socket.emit('join_dialog', {});
-      console.log('socketio.emit: join_dialog');
-    });
-    socket.on('redirect', function(msg){ window.location = msg.url; });
-    socket.on('messages', this._messagesReceive);
-    socket.on('history', this._historyReceive);
-    socket.on('actions', this._actionsRecieve);
-    socket.on('add_actions', this._additional_actionReceive);
-    socket.on('timeout_turn', this._finish_selection);
-  },
-  _messagesReceive(new_msg) {
-    var {msgs} = this.state;
-    msgs.push(new_msg);
-    if (msgs.length > 3) {
-      msgs.shift()
-    }
-    this.setState({msgs});
-    console.log('Updated msgs:', msgs, 'after new_msg added', new_msg);
-  },
-  _historyReceive(new_history) {
-      var {history} = this.state;
-      history = new_history;
-      this.setState({history});
-      if (history.length > 0) {
-         console.log('New history received .. last msg', history[history.length-1]);
-      } else {
-         console.log('Empty history', new_history);
-      }
-  },
-  _actionsRecieve(proposed_actions) {
-      // New turn marked by receiving new actions to choose from
-      var active = true;
-      this.setState({active});
-
-      var {actions} = this.state;
-      actions = proposed_actions;
-      this.setState({actions});
-      if (actions.length > 0) {
-        console.log('Actions[0]', actions[0]);
-      } else {
-        console.log('No actions were received!', actions);
-      }
-  },
-  _actionsSelected(text) {
-      var filtered_keys = Object.keys(this.state.db_selected).filter(function(el) {return this.state.db_selected[el]; }.bind(this));
-      if (filtered_keys.length == 0) {
-          this._messagesReceive({'style': 'info', 'id': 'local_messages' + String(Date.now()), 'text': 'You have provided no information from database'});
-      }
-      if (this.state.turn_reasons_from_history.length == 0) {
-          this._messagesReceive({'style': 'danger', 'id': 'local_messages' + String(Date.now()), 'text': 'Select reason for your actions from history before submitting!'});
-      } else {
-          var reasons =  this.state.turn_reasons_from_history.map(function(r) {return this.state.history[r];});
-          var msg = {role: this.props.role, text: text,
-              reasons_ids: this.state.turn_reasons_from_history,
-              reasons: reasons,};
-          console.log('action_selected: ', msg);
-          socket.emit('action_selected', msg)
-      }
-  },
-  _userSuggestedAction(action_text) {
-      console.log('User suggested new action ', action_text);
-      // TODO disable choosing other action then suggested?
-      socket.emit('new_action', {text: action_text, role: this.props.role, author: this.props.nick})
-  },
-  _additional_actionReceive(new_action) {
-      console.log('Additional action recieved', new_action);
-      var {actions} = this.state;
-      actions.push(new_action);
-      this.setState({actions});
-  },
-  _finish_selection(msgs) {
-      console.log('Finish selection', msgs);
-      var active = false;
-      var msg = {'style': 'info', 'id': 'local_messages' + String(Date.now()),
-          'text': 'Turn finished. Wait for new system response and new actions to choose from!'};
-      this._messagesReceive(msg);
-      this.state.setState(active);
-  },
-  _reasons_update(history_dict) {
-      var turn_reasons_from_history = [];
-      for (var key in history_dict) {
-          if (history_dict.hasOwnProperty(key) && (history_dict[key])) {
-            turn_reasons_from_history.push(key)
-          }
-      }
-      this.setState(turn_reasons_from_history)
-  },
-  _row_selected(row, selected) {
-     this.state.db_selected[row] = selected;
-  },
-  render() {
-    return (
-      <DbView active={this.state.active} onSelectRow={this._row_selected} data={this.state.db_data} columns={this.state.columns}/>
-      );
-  },
-});
-
-
-
-  ReactDOM.render(navbarInstance, document.getElementById('topbar'));
-
-  console.log(nick);
-  console.log(role);
-  if (user == 'sys') {
-    var main = document.getElementById('db');
-    ReactDOM.render(<ActionSelect dialog_id={dialog_id} nick={nick} role={role}/>, main);
- }
-
-
 
 });
-

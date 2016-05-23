@@ -3,86 +3,86 @@
 <strong>Your role is <span id="role">{{role}}</span></strong>
 </p>
   <p>
-  <span class="usronly"> <strong>You want to know following information about a restaurant</strong></span>
-    <em class="goal usronly" >{{goal0}}</em>
-    <em class="goal usronly" >{{goal1}}</em>
-    <em class="goal usronly" >{{goal2}}</em>
-    <em class="goal usronly" >{{goal3}}</em>
-    <em class="goal usronly" >{{goal4}}</em>
-  <span class="usronly"> <strong>but you are interested only in restaurant with following properties</strong></span>
-    <em class="constrain usronly" >{{cons0}}</em>
-    <em class="constrain usronly" >{{cons1}}</em>
-    <em class="constrain usronly" >{{cons2}}</em>
-    <em class="constrain usronly" >{{cons3}}</em>
-    <em class="constrain usronly" >{{cons4}}</em>
+  <span class="usronly"> <strong>You want to know following information about a restaurant</strong></span><br/>
+    <em class="goal usronly checkempty" >{{goal0}}</em>
+    <em class="goal usronly checkempty" >{{goal1}}</em>
+    <em class="goal usronly checkempty" >{{goal2}}</em>
+    <em class="goal usronly checkempty" >{{goal3}}</em>
+    <em class="goal usronly checkempty" >{{goal4}}</em>
+    <span class="usronly"> <strong>but you are interested only in restaurant with following properties</strong></span><br/>
+    <em class="constrain usronly checkempty" >{{cons0}}</em>
+    <em class="constrain usronly checkempty" >{{cons1}}</em>
+    <em class="constrain usronly checkempty" >{{cons2}}</em>
+    <em class="constrain usronly checkempty" >{{cons3}}</em>
+    <em class="constrain usronly checkempty" >{{cons4}}</em>
   </p>
   <p class="instr">
   Please, read and understand the dialogue history, and based on it continue in conversation!
   </p>
   <div id="history" class="history">
 
-  <span class='sys'><span class="role">System 00: </span>{{sys00}}</span><br/>
-  <span class='user'><span class="role">User   00:</span>{{usr00}}</span><br/>
-  <span class='sys'><span class="role">System 01: </span>{{sys01}}</span><br/>
-  <span class='user'><span class="role">User   01:</span>{{usr01}}</span><br/>
-  <span class='sys'><span class="role">System 02: </span>{{sys02}}</span><br/>
-  <span class='user'><span class="role">User   02:</span>{{usr02}}</span><br/>
-  <span class='sys'><span class="role">System 03: </span>{{sys03}}</span><br/>
-  <span class='user'><span class="role">User   03:</span>{{usr03}}</span><br/>
-  <span class='sys'><span class="role">System 04: </span>{{sys04}}</span><br/>
-  <span class='user'><span class="role">User   04:</span>{{usr04}}</span><br/>
-  <span class='sys'><span class="role">System 05: </span>{{sys05}}</span><br/>
-  <span class='user'><span class="role">User   05:</span>{{usr05}}</span><br/>
-  <span class='sys'><span class="role">System 06: </span>{{sys06}}</span><br/>
-  <span class='user'><span class="role">User   06:</span>{{usr06}}</span><br/>
-  <span class='sys'><span class="role">System 07: </span>{{sys07}}</span><br/>
-  <span class='user'><span class="role">User   07:</span>{{usr07}}</span><br/>
-  <span class='sys'><span class="role">System 08: </span>{{sys08}}</span><br/>
-  <span class='user'><span class="role">User   08:</span>{{usr08}}</span><br/>
-  <span class='sys'><span class="role">System 09: </span>{{sys09}}</span><br/>
-  <span class='user'><span class="role">User   09:</span>{{usr09}}</span><br/>
+  <div class='sys'><span class="role">System 00: </span><span class="checkemptyhistory">{{sys00}}</span></div>
+  <div class='user'><span class="role">User   00:</span><span class="checkemptyhistory">{{usr00}}</span></div>
+  <div class='sys'><span class="role">System 01: </span><span class="checkemptyhistory">{{sys01}}</span></div>
+  <div class='user'><span class="role">User   01:</span><span class="checkemptyhistory">{{usr01}}</span></div>
+  <div class='sys'><span class="role">System 02: </span><span class="checkemptyhistory">{{sys02}}</span></div>
+  <div class='user'><span class="role">User   02:</span><span class="checkemptyhistory">{{usr02}}</span></div>
+  <div class='sys'><span class="role">System 03: </span><span class="checkemptyhistory">{{sys03}}</span></div>
+  <div class='user'><span class="role">User   03:</span><span class="checkemptyhistory">{{usr03}}</span></div>
+  <div class='sys'><span class="role">System 04: </span><span class="checkemptyhistory">{{sys04}}</span></div>
+  <div class='user'><span class="role">User   04:</span><span class="checkemptyhistory">{{usr04}}</span></div>
+  <div class='sys'><span class="role">System 05: </span><span class="checkemptyhistory">{{sys05}}</span></div>
+  <div class='user'><span class="role">User   05:</span><span class="checkemptyhistory">{{usr05}}</span></div>
+  <div class='sys'><span class="role">System 06: </span><span class="checkemptyhistory">{{sys06}}</span></div>
+  <div class='user'><span class="role">User   06:</span><span class="checkemptyhistory">{{usr06}}</span></div>
+  <div class='sys'><span class="role">System 07: </span><span class="checkemptyhistory">{{sys07}}</span></div>
+  <div class='user'><span class="role">User   07:</span><span class="checkemptyhistory">{{usr07}}</span></div>
+  <div class='sys'><span class="role">System 08: </span><span class="checkemptyhistory">{{sys08}}</span></div>
+  <div class='user'><span class="role">User   08:</span><span class="checkemptyhistory">{{usr08}}</span></div>
+  <div class='sys'><span class="role">System 09: </span><span class="checkemptyhistory">{{sys09}}</span></div>
+  <div class='user'><span class="role">User   09:</span><span class="checkemptyhistory">{{usr09}}</span></div>
 
-  <span class='sys'><span class="role">System 10: </span>{{sys10}}</span><br/>
-  <span class='user'><span class="role">User   10:</span>{{usr10}}</span><br/>
-  <span class='sys'><span class="role">System 11: </span>{{sys11}}</span><br/>
-  <span class='user'><span class="role">User   11:</span>{{usr11}}</span><br/>
-  <span class='sys'><span class="role">System 12: </span>{{sys12}}</span><br/>
-  <span class='user'><span class="role">User   12:</span>{{usr12}}</span><br/>
-  <span class='sys'><span class="role">System 13: </span>{{sys13}}</span><br/>
-  <span class='user'><span class="role">User   13:</span>{{usr13}}</span><br/>
-  <span class='sys'><span class="role">System 14: </span>{{sys14}}</span><br/>
-  <span class='user'><span class="role">User   14:</span>{{usr14}}</span><br/>
-  <span class='sys'><span class="role">System 15: </span>{{sys15}}</span><br/>
-  <span class='user'><span class="role">User   15:</span>{{usr15}}</span><br/>
-  <span class='sys'><span class="role">System 16: </span>{{sys16}}</span><br/>
-  <span class='user'><span class="role">User   16:</span>{{usr16}}</span><br/>
-  <span class='sys'><span class="role">System 17: </span>{{sys17}}</span><br/>
-  <span class='user'><span class="role">User   17:</span>{{usr17}}</span><br/>
-  <span class='sys'><span class="role">System 18: </span>{{sys18}}</span><br/>
-  <span class='user'><span class="role">User   18:</span>{{usr18}}</span><br/>
-  <span class='sys'><span class="role">System 19: </span>{{sys19}}</span><br/>
-  <span class='user'><span class="role">User   19:</span>{{usr19}}</span><br/>
+  <div class='sys'><span class="role">System 10: </span><span class="checkemptyhistory">{{sys10}}</span></div>
+  <div class='user'><span class="role">User   10:</span><span class="checkemptyhistory">{{usr10}}</span></div>
+  <div class='sys'><span class="role">System 11: </span><span class="checkemptyhistory">{{sys11}}</span></div>
+  <div class='user'><span class="role">User   11:</span><span class="checkemptyhistory">{{usr11}}</span></div>
+  <div class='sys'><span class="role">System 12: </span><span class="checkemptyhistory">{{sys12}}</span></div>
+  <div class='user'><span class="role">User   12:</span><span class="checkemptyhistory">{{usr12}}</span></div>
+  <div class='sys'><span class="role">System 13: </span><span class="checkemptyhistory">{{sys13}}</span></div>
+  <div class='user'><span class="role">User   13:</span><span class="checkemptyhistory">{{usr13}}</span></div>
+  <div class='sys'><span class="role">System 14: </span><span class="checkemptyhistory">{{sys14}}</span></div>
+  <div class='user'><span class="role">User   14:</span><span class="checkemptyhistory">{{usr14}}</span></div>
+  <div class='sys'><span class="role">System 15: </span><span class="checkemptyhistory">{{sys15}}</span></div>
+  <div class='user'><span class="role">User   15:</span><span class="checkemptyhistory">{{usr15}}</span></div>
+  <div class='sys'><span class="role">System 16: </span><span class="checkemptyhistory">{{sys16}}</span></div>
+  <div class='user'><span class="role">User   16:</span><span class="checkemptyhistory">{{usr16}}</span></div>
+  <div class='sys'><span class="role">System 17: </span><span class="checkemptyhistory">{{sys17}}</span></div>
+  <div class='user'><span class="role">User   17:</span><span class="checkemptyhistory">{{usr17}}</span></div>
+  <div class='sys'><span class="role">System 18: </span><span class="checkemptyhistory">{{sys18}}</span></div>
+  <div class='user'><span class="role">User   18:</span><span class="checkemptyhistory">{{usr18}}</span></div>
+  <div class='sys'><span class="role">System 19: </span><span class="checkemptyhistory">{{sys19}}</span></div>
+  <div class='user'><span class="role">User   19:</span><span class="checkemptyhistory">{{usr19}}</span></div>
 
-  <span class='sys'><span class="role">System 20: </span>{{sys20}}</span><br/>
-  <span class='user'><span class="role">User   20:</span>{{usr20}}</span><br/>
-  <span class='sys'><span class="role">System 21: </span>{{sys21}}</span><br/>
-  <span class='user'><span class="role">User   21:</span>{{usr21}}</span><br/>
-  <span class='sys'><span class="role">System 22: </span>{{sys22}}</span><br/>
-  <span class='user'><span class="role">User   22:</span>{{usr22}}</span><br/>
-  <span class='sys'><span class="role">System 23: </span>{{sys23}}</span><br/>
-  <span class='user'><span class="role">User   23:</span>{{usr23}}</span><br/>
-  <span class='sys'><span class="role">System 24: </span>{{sys24}}</span><br/>
-  <span class='user'><span class="role">User   24:</span>{{usr24}}</span><br/>
-  <span class='sys'><span class="role">System 25: </span>{{sys25}}</span><br/>
-  <span class='user'><span class="role">User   25:</span>{{usr25}}</span><br/>
-  <span class='sys'><span class="role">System 26: </span>{{sys26}}</span><br/>
-  <span class='user'><span class="role">User   26:</span>{{usr26}}</span><br/>
-  <span class='sys'><span class="role">System 27: </span>{{sys27}}</span><br/>
-  <span class='user'><span class="role">User   27:</span>{{usr27}}</span><br/>
-  <span class='sys'><span class="role">System 28: </span>{{sys28}}</span><br/>
-  <span class='user'><span class="role">User   28:</span>{{usr28}}</span><br/>
-  <span class='sys'><span class="role">System 29: </span>{{sys29}}</span><br/>
-  <span class='user'><span class="role">User   29:</span>{{usr29}}</span><br/>
+  <div class='sys'><span class="role">System 20: </span><span class="checkemptyhistory">{{sys20}}</span></div>
+  <div class='user'><span class="role">User   20:</span><span class="checkemptyhistory">{{usr20}}</span></div>
+  <div class='sys'><span class="role">System 21: </span><span class="checkemptyhistory">{{sys21}}</span></div>
+  <div class='user'><span class="role">User   21:</span><span class="checkemptyhistory">{{usr21}}</span></div>
+  <div class='sys'><span class="role">System 22: </span><span class="checkemptyhistory">{{sys22}}</span></div>
+  <div class='user'><span class="role">User   22:</span><span class="checkemptyhistory">{{usr22}}</span></div>
+  <div class='sys'><span class="role">System 23: </span><span class="checkemptyhistory">{{sys23}}</span></div>
+  <div class='user'><span class="role">User   23:</span><span class="checkemptyhistory">{{usr23}}</span></div>
+  <div class='sys'><span class="role">System 24: </span><span class="checkemptyhistory">{{sys24}}</span></div>
+  <div class='user'><span class="role">User   24:</span><span class="checkemptyhistory">{{usr24}}</span></div>
+  <div class='sys'><span class="role">System 25: </span><span class="checkemptyhistory">{{sys25}}</span></div>
+  <div class='user'><span class="role">User   25:</span><span class="checkemptyhistory">{{usr25}}</span></div>
+  <div class='sys'><span class="role">System 26: </span><span class="checkemptyhistory">{{sys26}}</span></div>
+  <div class='user'><span class="role">User   26:</span><span class="checkemptyhistory">{{usr26}}</span></div>
+  <div class='sys'><span class="role">System 27: </span><span class="checkemptyhistory">{{sys27}}</span></div>
+  <div class='user'><span class="role">User   27:</span><span class="checkemptyhistory">{{usr27}}</span></div>
+  <div class='sys'><span class="role">System 28: </span><span class="checkemptyhistory">{{sys28}}</span></div>
+  <div class='user'><span class="role">User   28:</span><span class="checkemptyhistory">{{usr28}}</span></div>
+  <div class='sys'><span class="role">System 29: </span><span class="checkemptyhistory">{{sys29}}</span></div>
+  <div class='user'><span class="role">User   29:</span><span class="checkemptyhistory">{{usr29}}</span></div>
 </div>
 
   <cml:hidden name="validation_log" />

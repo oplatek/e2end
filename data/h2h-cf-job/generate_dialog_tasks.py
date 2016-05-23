@@ -20,9 +20,9 @@ setup_debug_hook()
 
 
 class Dialog:
-    max_dial_len = 30
-    max_goals = 5
-    max_constrain = 5
+    max_dial_len = 3
+    max_goals = 2
+    max_constrain = 1
 
     def __init__(self, data): 
         self.df = pandas.DataFrame.from_dict(dict([(h, []) for h in self.get_headers()]))
@@ -34,7 +34,7 @@ class Dialog:
         d = Dialog({}) 
         return d
 
-    def to_csv(self, filename, sep='\t', **kwargs):
+    def to_csv(self, filename, sep=',', **kwargs):
         kwargs['sep'] = sep
         kwargs['cols'] = self.get_headers()
         kwargs['header'] = True
@@ -68,16 +68,16 @@ class Dialog:
         usr_h = ['usr{:02d}'.format(u) for u in range(Dialog.max_dial_len)]
         error = ['error{:02d}'.format(e) for e in range(Dialog.max_dial_len)]
         turns_h = [i for tup in zip(sys_h, usr_h, error) for i in tup]
-        task = ['task']
+        role = ['role']
         goals_asked = ['asked_goal{}'.format(g) for g in range(Dialog.max_goals)]
         goals_answered = ['answered_goal{}'.format(g) for g in range(Dialog.max_goals)]
         cons_spec = ['specified_constrain{}'.format(c) for c in range(Dialog.max_constrain)]
         author = ['author']
 
-        return goals + cons + turns_h + task + goals_asked + goals_answered + cons_spec + author + error
+        return goals + cons + turns_h + role + goals_asked + goals_answered + cons_spec + author + error
 
     @staticmethod
-    def load_answers(answers, sep='\t', **kwargs):
+    def load_answers(answers, sep=',', **kwargs):
         kwargs['sep'] = sep
         df = pandas.read_csv(answers, **kwargs) 
         # empty strings instead of NaNs 
@@ -100,7 +100,7 @@ class Dialog:
         dialogs = []
         for k in range(num):
             d = {}
-            num_goals = min(random.randint(min_goals, max_goals), max_goals)
+            num_goals = min(random.randint(min_goals, max_goals), Dialog.max_goals)
             goals = random.sample(requestable, num_goals)
 
             num_cons = min(random.randint(constraint_min, constraint_max), Dialog.max_constrain)
@@ -111,6 +111,7 @@ class Dialog:
                 d['goal{}'.format(i)] = [g]
             for i, c in enumerate(constrains):
                 d['cons{}'.format(i)] = [c]
+            d['role'] = 'sys'
             dialogs.append(Dialog(d))
 
             return Dialog(pandas.concat([d.df for d in dialogs]))
