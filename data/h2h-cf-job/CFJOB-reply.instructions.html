@@ -1,12 +1,16 @@
 <h3 id="the-task">The Task</h3>
 
-<p class="system">
-Imagine you are a hotline operator in restaurant recommendation service in Cambridge. 
-Given a database and a partial conversation you should answer the next user question about restaurant.  
+<p>
+Imagine you are playing a game where you can play either a <strong>hotline operator or client</strong> which tries to <strong>find a restaurant for tonight in Cambridge</strong>.
+The client has given a predefined goal what kind of  restaurant he want to visit.
+The hotline operator tries to help the client to find one of the restaurant which satisfies client requirements.
 </p>
 
 <p>
-In addition you will have to annotate the dialog history by acknowledging several assert statement for previous user and system utterance
+The rules of games are that after you write a reply either as a client or as operator you pass the conversation to other players and you pick random conversation from other players for next round.
+In this task's implementation <strong>you provide a reply and in the next round you are assigned a new conversation and role (either operator or client).</strong> 
 </p>
 
-<p><strong>Most importantly, please provide only the information to the user which you know from the database and phrase the answers in fluent English</strong></p> 
+<p>
+The goal of the game is to create conversations which satisfy client goals, are natural, polite and are achieved in shortest number of rounds.
+</p>
