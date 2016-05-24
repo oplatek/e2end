@@ -1,91 +1,101 @@
 <div class="html-element-wrapper">
 <p class="info">
-<!-- <strong>Your role is <span id="role">{{role}}</span></strong> -->
+<strong style="display: none">Your role is <span class="role">{{role}}</span></strong>
 </p>
   <p>
-  <span class="usronly"> <strong>You want to know following information about a restaurant</strong></span><br/>
+  <span class="usronly"> You want to know following information about a restaurant</span><br/>
+  <strong>
     <em class="goal usronly checkempty" >{{goal0}}</em>
     <em class="goal usronly checkempty" >{{goal1}}</em>
     <em class="goal usronly checkempty" >{{goal2}}</em>
     <em class="goal usronly checkempty" >{{goal3}}</em>
     <em class="goal usronly checkempty" >{{goal4}}</em>
-    <span class="usronly"> <strong>but you are interested only in restaurant with following properties</strong></span><br/>
+</strong>
+    <br/><span class="usronly"> but you are interested only in restaurant with following properties</span><br/>
+<strong>
     <em class="constrain usronly checkempty" >{{cons0}}</em>
     <em class="constrain usronly checkempty" >{{cons1}}</em>
     <em class="constrain usronly checkempty" >{{cons2}}</em>
     <em class="constrain usronly checkempty" >{{cons3}}</em>
     <em class="constrain usronly checkempty" >{{cons4}}</em>
+</strong>
   </p>
   <p class="instr">
   Please, read and understand the dialogue history, and based on it continue in conversation!
   </p>
-  <div id="history" class="history">
+  <div class="history">
 
-  <div class='sys'><span class="role">System 00: </span><span class="checkemptyhistory">{{sys00}}</span></div>
-  <div class='user'><span class="role">User   00:</span><span class="checkemptyhistory">{{usr00}}</span></div>
-  <div class='sys'><span class="role">System 01: </span><span class="checkemptyhistory">{{sys01}}</span></div>
-  <div class='user'><span class="role">User   01:</span><span class="checkemptyhistory">{{usr01}}</span></div>
-  <div class='sys'><span class="role">System 02: </span><span class="checkemptyhistory">{{sys02}}</span></div>
-  <div class='user'><span class="role">User   02:</span><span class="checkemptyhistory">{{usr02}}</span></div>
-  <div class='sys'><span class="role">System 03: </span><span class="checkemptyhistory">{{sys03}}</span></div>
-  <div class='user'><span class="role">User   03:</span><span class="checkemptyhistory">{{usr03}}</span></div>
-  <div class='sys'><span class="role">System 04: </span><span class="checkemptyhistory">{{sys04}}</span></div>
-  <div class='user'><span class="role">User   04:</span><span class="checkemptyhistory">{{usr04}}</span></div>
-  <div class='sys'><span class="role">System 05: </span><span class="checkemptyhistory">{{sys05}}</span></div>
-  <div class='user'><span class="role">User   05:</span><span class="checkemptyhistory">{{usr05}}</span></div>
-  <div class='sys'><span class="role">System 06: </span><span class="checkemptyhistory">{{sys06}}</span></div>
-  <div class='user'><span class="role">User   06:</span><span class="checkemptyhistory">{{usr06}}</span></div>
-  <div class='sys'><span class="role">System 07: </span><span class="checkemptyhistory">{{sys07}}</span></div>
-  <div class='user'><span class="role">User   07:</span><span class="checkemptyhistory">{{usr07}}</span></div>
-  <div class='sys'><span class="role">System 08: </span><span class="checkemptyhistory">{{sys08}}</span></div>
-  <div class='user'><span class="role">User   08:</span><span class="checkemptyhistory">{{usr08}}</span></div>
-  <div class='sys'><span class="role">System 09: </span><span class="checkemptyhistory">{{sys09}}</span></div>
-  <div class='user'><span class="role">User   09:</span><span class="checkemptyhistory">{{usr09}}</span></div>
+  <div class='sys'><span class="role_header">System 00: </span><span class="checkemptyhistory">{{sys00}}</span></div>
+  <div class='user'><span class="role_header">User   00:</span><span class="checkemptyhistory">{{usr00}}</span></div>
+  <div class='sys'><span class="role_header">System 01: </span><span class="checkemptyhistory">{{sys01}}</span></div>
+  <div class='user'><span class="role_header">User   01:</span><span class="checkemptyhistory">{{usr01}}</span></div>
+  <div class='sys'><span class="role_header">System 02: </span><span class="checkemptyhistory">{{sys02}}</span></div>
+  <div class='user'><span class="role_header">User   02:</span><span class="checkemptyhistory">{{usr02}}</span></div>
+  <div class='sys'><span class="role_header">System 03: </span><span class="checkemptyhistory">{{sys03}}</span></div>
+  <div class='user'><span class="role_header">User   03:</span><span class="checkemptyhistory">{{usr03}}</span></div>
+  <div class='sys'><span class="role_header">System 04: </span><span class="checkemptyhistory">{{sys04}}</span></div>
+  <div class='user'><span class="role_header">User   04:</span><span class="checkemptyhistory">{{usr04}}</span></div>
+  <div class='sys'><span class="role_header">System 05: </span><span class="checkemptyhistory">{{sys05}}</span></div>
+  <div class='user'><span class="role_header">User   05:</span><span class="checkemptyhistory">{{usr05}}</span></div>
+  <div class='sys'><span class="role_header">System 06: </span><span class="checkemptyhistory">{{sys06}}</span></div>
+  <div class='user'><span class="role_header">User   06:</span><span class="checkemptyhistory">{{usr06}}</span></div>
+  <div class='sys'><span class="role_header">System 07: </span><span class="checkemptyhistory">{{sys07}}</span></div>
+  <div class='user'><span class="role_header">User   07:</span><span class="checkemptyhistory">{{usr07}}</span></div>
+  <div class='sys'><span class="role_header">System 08: </span><span class="checkemptyhistory">{{sys08}}</span></div>
+  <div class='user'><span class="role_header">User   08:</span><span class="checkemptyhistory">{{usr08}}</span></div>
+  <div class='sys'><span class="role_header">System 09: </span><span class="checkemptyhistory">{{sys09}}</span></div>
+  <div class='user'><span class="role_header">User   09:</span><span class="checkemptyhistory">{{usr09}}</span></div>
 
-  <div class='sys'><span class="role">System 10: </span><span class="checkemptyhistory">{{sys10}}</span></div>
-  <div class='user'><span class="role">User   10:</span><span class="checkemptyhistory">{{usr10}}</span></div>
-  <div class='sys'><span class="role">System 11: </span><span class="checkemptyhistory">{{sys11}}</span></div>
-  <div class='user'><span class="role">User   11:</span><span class="checkemptyhistory">{{usr11}}</span></div>
-  <div class='sys'><span class="role">System 12: </span><span class="checkemptyhistory">{{sys12}}</span></div>
-  <div class='user'><span class="role">User   12:</span><span class="checkemptyhistory">{{usr12}}</span></div>
-  <div class='sys'><span class="role">System 13: </span><span class="checkemptyhistory">{{sys13}}</span></div>
-  <div class='user'><span class="role">User   13:</span><span class="checkemptyhistory">{{usr13}}</span></div>
-  <div class='sys'><span class="role">System 14: </span><span class="checkemptyhistory">{{sys14}}</span></div>
-  <div class='user'><span class="role">User   14:</span><span class="checkemptyhistory">{{usr14}}</span></div>
-  <div class='sys'><span class="role">System 15: </span><span class="checkemptyhistory">{{sys15}}</span></div>
-  <div class='user'><span class="role">User   15:</span><span class="checkemptyhistory">{{usr15}}</span></div>
-  <div class='sys'><span class="role">System 16: </span><span class="checkemptyhistory">{{sys16}}</span></div>
-  <div class='user'><span class="role">User   16:</span><span class="checkemptyhistory">{{usr16}}</span></div>
-  <div class='sys'><span class="role">System 17: </span><span class="checkemptyhistory">{{sys17}}</span></div>
-  <div class='user'><span class="role">User   17:</span><span class="checkemptyhistory">{{usr17}}</span></div>
-  <div class='sys'><span class="role">System 18: </span><span class="checkemptyhistory">{{sys18}}</span></div>
-  <div class='user'><span class="role">User   18:</span><span class="checkemptyhistory">{{usr18}}</span></div>
-  <div class='sys'><span class="role">System 19: </span><span class="checkemptyhistory">{{sys19}}</span></div>
-  <div class='user'><span class="role">User   19:</span><span class="checkemptyhistory">{{usr19}}</span></div>
+  <div class='sys'><span class="role_header">System 10: </span><span class="checkemptyhistory">{{sys10}}</span></div>
+  <div class='user'><span class="role_header">User   10:</span><span class="checkemptyhistory">{{usr10}}</span></div>
+  <div class='sys'><span class="role_header">System 11: </span><span class="checkemptyhistory">{{sys11}}</span></div>
+  <div class='user'><span class="role_header">User   11:</span><span class="checkemptyhistory">{{usr11}}</span></div>
+  <div class='sys'><span class="role_header">System 12: </span><span class="checkemptyhistory">{{sys12}}</span></div>
+  <div class='user'><span class="role_header">User   12:</span><span class="checkemptyhistory">{{usr12}}</span></div>
+  <div class='sys'><span class="role_header">System 13: </span><span class="checkemptyhistory">{{sys13}}</span></div>
+  <div class='user'><span class="role_header">User   13:</span><span class="checkemptyhistory">{{usr13}}</span></div>
+  <div class='sys'><span class="role_header">System 14: </span><span class="checkemptyhistory">{{sys14}}</span></div>
+  <div class='user'><span class="role_header">User   14:</span><span class="checkemptyhistory">{{usr14}}</span></div>
+  <div class='sys'><span class="role_header">System 15: </span><span class="checkemptyhistory">{{sys15}}</span></div>
+  <div class='user'><span class="role_header">User   15:</span><span class="checkemptyhistory">{{usr15}}</span></div>
+  <div class='sys'><span class="role_header">System 16: </span><span class="checkemptyhistory">{{sys16}}</span></div>
+  <div class='user'><span class="role_header">User   16:</span><span class="checkemptyhistory">{{usr16}}</span></div>
+  <div class='sys'><span class="role_header">System 17: </span><span class="checkemptyhistory">{{sys17}}</span></div>
+  <div class='user'><span class="role_header">User   17:</span><span class="checkemptyhistory">{{usr17}}</span></div>
+  <div class='sys'><span class="role_header">System 18: </span><span class="checkemptyhistory">{{sys18}}</span></div>
+  <div class='user'><span class="role_header">User   18:</span><span class="checkemptyhistory">{{usr18}}</span></div>
+  <div class='sys'><span class="role_header">System 19: </span><span class="checkemptyhistory">{{sys19}}</span></div>
+  <div class='user'><span class="role_header">User   19:</span><span class="checkemptyhistory">{{usr19}}</span></div>
 
-  <div class='sys'><span class="role">System 20: </span><span class="checkemptyhistory">{{sys20}}</span></div>
-  <div class='user'><span class="role">User   20:</span><span class="checkemptyhistory">{{usr20}}</span></div>
-  <div class='sys'><span class="role">System 21: </span><span class="checkemptyhistory">{{sys21}}</span></div>
-  <div class='user'><span class="role">User   21:</span><span class="checkemptyhistory">{{usr21}}</span></div>
-  <div class='sys'><span class="role">System 22: </span><span class="checkemptyhistory">{{sys22}}</span></div>
-  <div class='user'><span class="role">User   22:</span><span class="checkemptyhistory">{{usr22}}</span></div>
-  <div class='sys'><span class="role">System 23: </span><span class="checkemptyhistory">{{sys23}}</span></div>
-  <div class='user'><span class="role">User   23:</span><span class="checkemptyhistory">{{usr23}}</span></div>
-  <div class='sys'><span class="role">System 24: </span><span class="checkemptyhistory">{{sys24}}</span></div>
-  <div class='user'><span class="role">User   24:</span><span class="checkemptyhistory">{{usr24}}</span></div>
-  <div class='sys'><span class="role">System 25: </span><span class="checkemptyhistory">{{sys25}}</span></div>
-  <div class='user'><span class="role">User   25:</span><span class="checkemptyhistory">{{usr25}}</span></div>
-  <div class='sys'><span class="role">System 26: </span><span class="checkemptyhistory">{{sys26}}</span></div>
-  <div class='user'><span class="role">User   26:</span><span class="checkemptyhistory">{{usr26}}</span></div>
-  <div class='sys'><span class="role">System 27: </span><span class="checkemptyhistory">{{sys27}}</span></div>
-  <div class='user'><span class="role">User   27:</span><span class="checkemptyhistory">{{usr27}}</span></div>
-  <div class='sys'><span class="role">System 28: </span><span class="checkemptyhistory">{{sys28}}</span></div>
-  <div class='user'><span class="role">User   28:</span><span class="checkemptyhistory">{{usr28}}</span></div>
-  <div class='sys'><span class="role">System 29: </span><span class="checkemptyhistory">{{sys29}}</span></div>
-  <div class='user'><span class="role">User   29:</span><span class="checkemptyhistory">{{usr29}}</span></div>
+  <div class='sys'><span class="role_header">System 20: </span><span class="checkemptyhistory">{{sys20}}</span></div>
+  <div class='user'><span class="role_header">User   20:</span><span class="checkemptyhistory">{{usr20}}</span></div>
+  <div class='sys'><span class="role_header">System 21: </span><span class="checkemptyhistory">{{sys21}}</span></div>
+  <div class='user'><span class="role_header">User   21:</span><span class="checkemptyhistory">{{usr21}}</span></div>
+  <div class='sys'><span class="role_header">System 22: </span><span class="checkemptyhistory">{{sys22}}</span></div>
+  <div class='user'><span class="role_header">User   22:</span><span class="checkemptyhistory">{{usr22}}</span></div>
+  <div class='sys'><span class="role_header">System 23: </span><span class="checkemptyhistory">{{sys23}}</span></div>
+  <div class='user'><span class="role_header">User   23:</span><span class="checkemptyhistory">{{usr23}}</span></div>
+  <div class='sys'><span class="role_header">System 24: </span><span class="checkemptyhistory">{{sys24}}</span></div>
+  <div class='user'><span class="role_header">User   24:</span><span class="checkemptyhistory">{{usr24}}</span></div>
+  <div class='sys'><span class="role_header">System 25: </span><span class="checkemptyhistory">{{sys25}}</span></div>
+  <div class='user'><span class="role_header">User   25:</span><span class="checkemptyhistory">{{usr25}}</span></div>
+  <div class='sys'><span class="role_header">System 26: </span><span class="checkemptyhistory">{{sys26}}</span></div>
+  <div class='user'><span class="role_header">User   26:</span><span class="checkemptyhistory">{{usr26}}</span></div>
+  <div class='sys'><span class="role_header">System 27: </span><span class="checkemptyhistory">{{sys27}}</span></div>
+  <div class='user'><span class="role_header">User   27:</span><span class="checkemptyhistory">{{usr27}}</span></div>
+  <div class='sys'><span class="role_header">System 28: </span><span class="checkemptyhistory">{{sys28}}</span></div>
+  <div class='user'><span class="role_header">User   28:</span><span class="checkemptyhistory">{{usr28}}</span></div>
+  <div class='sys'><span class="role_header">System 29: </span><span class="checkemptyhistory">{{sys29}}</span></div>
+  <div class='user'><span class="role_header">User   29:</span><span class="checkemptyhistory">{{usr29}}</span></div>
 </div>
 
-<div id="db">
+<div class="db">
+<div class="input-group"> <span class="input-group-addon">Filter</span>
+
+  <cml:text label="Filter DB" name="filter" class="filter" instructions="If as an hotline operator you need to provide factual informatoin, type here to search rows with matching values. Split multiple values by commas without spaces. E.g. west,expensive if you search for multiple constraints." validates="" />
+
+</div>
+<div>Number of matching rows in table below <span class="count"><strong>0</strong></span></div>
 <table class="table table-striped">	<thead>
 	<tr>
 		<th>area</th>
@@ -98,6 +108,15 @@
 	</tr>
 </thead>
 	<tbody class="searchable">
+	<tr class="db_instructions">
+		<td>Type constraints</td>
+		<td>or goals</td>
+		<td>into the </td>
+		<td>Filter DB input</td>
+		<td>in order to</td>
+		<td>see valid</td>
+		<td>rows in this table.</td>
+	</tr>
 	<tr>
 		<td>west</td>
 		<td>india house</td>
@@ -1085,7 +1104,8 @@
 
   <cml:hidden name="validation_log" />
   <cml:hidden name="fluency_assessment" validates="required" />
-  <cml:text label="Error utterance" name="reply" instructions="If you spot an utterance, write that utterance number and still try to provide relevant response." class="" validates="" />
-  <cml:textarea label="Client (your) reply:" name="client_reply" instructions="Converse naturally and ask for based on the provided goals." class="usronly" validates="required ss-required yext_no_international_url"></cml:textarea>
-  <cml:textarea label="Operator (your) reply:" name="system_reply" instructions="Respond naturally based on the history and database information." class="sysonly" validates="required ss-required yext_no_international_url"></cml:textarea>
+  <cml:hidden name="num_rows_selected" validates="required" />
+  <cml:text label="Error utterance" name="reply" instructions="If you spot an utterance, write that utterance number and still try to provide relevant response." class="" validates="positiveInteger" />
+  <cml:textarea label="Client (your) reply:" name="client_reply" instructions="Converse naturally and ask for based on the provided goals." class="usronly dummyrequired" validates="required ss-required yext_no_international_url"></cml:textarea>
+  <cml:textarea label="Operator (your) reply:" name="system_reply" instructions="Respond naturally based on the history and database information." class="sysonly dummyrequired" validates="required ss-required yext_no_international_url"></cml:textarea>
 </div>

@@ -1,18 +1,27 @@
 # coding: utf-8
-from generate_dialog_tasks import Dialog
+if __name__ == "__main__":
+    import sys
+    sys.path.append('../..')
+    from generate_dialog_tasks import Dialog
 import crowdflower
-from IPython import get_ipython
 
 
 data = Dialog.load_answers('./data/test.csv')
 data = data.df.to_dict(orient='records')
-print(data)
+
+title = 'Test-Chat'
+instructions = open('./CFJOB-reply.instructions.html').read()
+cml = open('./CFJOB-reply.html').read()  # Ignoring 406 "Not Accepted" error: CrowdFlowerError: 414 Request-URI Too Large at https://api.crowdflower.com/v1/jobs/913237
+
+
+jscript = open('./CFJOB-reply.js').read()
+css = open('./CFJOB-reply.css').read()
 
 conn = crowdflower.Connection()
 job = None
 for j in conn.jobs():
-    title = j.properties['title']
-    if title == 'Test-Chat':
+    t = j.properties['title']
+    if t == title:
         job = j
 
 if not job:
@@ -20,30 +29,25 @@ if not job:
 
 
 conn = crowdflower.Connection()  # using CROWDFLOWER_API_KEY variable from shell
-get_ipython().magic('pwd ')
 job = conn.upload(data)
 
-cml = open('./CFJOB-reply.html').read()
-jscript = open('./CFJOB-reply.js').read()
-css = open('./CFJOB-reply.css').read()
-instructions = open('./.CFJOB-reply.instructions.html')
+# options = { 'front_load': 1,}  # quiz mode = 1; turn off with 0
+options = {}
 update_result = job.update({
-    'title': 'test-chat',
-    'included_countries': ['US', 'GB', 'CZ'],  
+    'title': title,
+    # 'included_countries': ['US', 'GB', 'CZ'],  
     # Limit to the USA and United Kingdom
     # Please note, if you are located in another country and you would like
     # to experiment with the sandbox (internal workers) then you also need
     # to add your own country. Otherwise your submissions as internal worker
     # will be rejected with Error 301 (low quality).
-    'payment_cents': 5,
-    'judgments_per_unit': 2,
-    'instructions': 'some <i>instructions</i> html',
+    # 'payment_cents': 5,
+    # 'judgments_per_unit': 1,
+    'instructions': instructions,
     'cml': cml,
     # 'css': css,
-    # 'javascript': jscript,
-    'options': {
-        'front_load': 1,  # quiz mode = 1; turn off with 0
-    }
+    # 'js': jscript,
+    # 'options': options,
 })
 if 'errors' in update_result:
         print(update_result['errors'])

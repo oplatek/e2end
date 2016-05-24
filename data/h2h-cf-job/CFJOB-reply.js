@@ -380,21 +380,24 @@ require(['jquery-noconflict'], function($) {
   }
 
   function getDataItemsFor(element){
-    var slots = [];
-    var values = [];
-    var taskTypes = [];
-    $(element).closest('.html-element-wrapper').find('.raw_data').find('.slot').each(
-        function(){ slots.push($(this).text()); }
+    var sys_utts = [];
+    var usr_utts = [];
+    var goals = [];
+    var consts = [];
+    $(element).closest('.html-element-wrapper').find('.history').find('.sys').find('checkemptyhistory').each(
+        function(){ sys_utts.push($(this).text()); }
         );
-    $(element).closest('.html-element-wrapper').find('.raw_data').find('.val').each(
-        function(){ values.push($(this).text()); }
+    $(element).closest('.html-element-wrapper').find('.history').find('.user').find('checkemptyhistory').each(
+        function(){ usr_utts.push($(this).text()); }
         );
-    $(element).closest('.html-element-wrapper').find('.instr').find('strong').each(
-        function(){ taskTypes.push($(this).attr('class')); }
+    $(element).closest('.html-element-wrapper').find('.goal.checkempty').find('strong').each(
+        function(){ goals.push($(this).text()); }
         );
     var context = $(element).closest('.html-element-wrapper').find('.user_utt')[0].innerText;
+    var role = $(element).closest('.html-element-wrapper').find('.role')[0].innerText;
+    console.log('role:' + role);
 
-    return {slots: slots, values: values, taskTypes: taskTypes, context: context};
+    return {sys_utts: sys_utts, usr_utts: usr_utts, goals: goals, consts: consts, role: role};
   }
 
   // main validation method, gather data and perform local and external validation
@@ -472,40 +475,61 @@ require(['jquery-noconflict'], function($) {
   // ****
   // UI
   // ****
-  function filter_count_rows($) {
-    $('#filter').keyup(function () {
 
-        var rex = new RegExp($(this).val(), 'i');
+  function filter_count_rows(cf_row_main_element) {
+    cf_row_main_element.find('.filter')[0].keyup(function () {
+        var filter_val = $(this).val();
+        if (!filter_val) {
+            $('.db_instructions').show();
+        } else {
+            $('.db_instructions').hide();
+        }
+        var searches = filter_val.split(',');
+        var regexps = []
+        for(var i=0 ; i < searches.length ; i++){
+            var rex = new RegExp(searches[i], 'i');
+            regexps.push(rex)
+        }
+
         $('.searchable tr').hide();
         var show_count = 0;
         $('.searchable tr').filter(function () {
-            matches =  rex.test($(this).text());
+            text = $(this).text();
+            matches = true; 
+            for(var i=0; i < searches.length; i++) {
+                matches = matches && regexps[i].test(text);
+            }
             if (matches) {
                 show_count = show_count + 1;
             }
             return matches;
         }).show();
-        $('#count').text(show_count);
-    })
+        $('.count').text(show_count);
+        var num_rows_selected = $(cf_row_main_element).closest('.html-element-wrapper').find('.num_rows_selected')[0];
+        num_rows_selected.value = show_count;
+    });
+    
   }
 
-  function hide_non_initialized() {
-      var role = document.getElementById("role").textContent;
-      console.log('role:' + role);
+  function hide_non_initialized(cf_row_main_element) {
+    var data = getDataItemsFor(cf_row_main_element);
+
         
-      if (role == 'sys') {
-        $('.usronly').hide();
-      } else if(role == 'usr') {
-        $('.sysonly').hide();
+      if (data.role == 'sys') {
+        cf_row_main_element.find('.usronly').hide();
+        cf_row_main_element.find('.usronly.dummyrequired').text('dummy');
+      } else if(data.role == 'usr') {
+        cf_row_main_element.find('.sysonly').hide();
+        cf_row_main_element.find('.sysonly.dummyrequired').text('dummy');
       } 
 
-      $('.checkempty').each(function() {
+      cf_row_main_element.find('.checkempty').each(function() {
         if ($(this).text() == 'No data available') {
             $(this).hide();
         }
       });
 
-      $('.checkemptyhistory').each(function() {
+      cf_row_main_element.find('.checkemptyhistory').each(function() {
         if ($(this).text() == 'No data available') {
             $(this).parent().hide();
         }
@@ -513,8 +537,14 @@ require(['jquery-noconflict'], function($) {
   }
 
   $(document).ready(function(){
-    hide_non_initialized();
+
+    $('.html-element-wrapper').each(
+        function(){ hide_non_initialized($(this)); }
+    );
     filter_count_rows(jQuery);
+    // hide db just the dummy to show
+    $('.searchable tr').hide();
+    $('.db_instructions').show();
 
     // prevent copy-paste from the instructions
     $('.html-element-wrapper').bind("copy paste",function(e) {
