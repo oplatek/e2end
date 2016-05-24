@@ -9,27 +9,6 @@ require(['jquery-noconflict'], function($) {
   var $ = window.jQuery;
   //jQuery goes here
 
-  var role = document.getElementById("role").textContent;
-  console.log('role:' + role);
-    
-  if (role == 'sys') {
-    $('.usronly').hide();
-  } else if(role == 'usr') {
-    $('.sysonly').hide();
-  } 
-
-  $('.checkempty').each(function() {
-    if ($(this).text() == 'No data available') {
-        $(this).hide();
-    }
-  });
-    
-
-  $('.checkemptyhistory').each(function() {
-    if ($(this).text() == 'No data available') {
-        $(this).parent().hide();
-    }
-  });
 
  
   // *****
@@ -493,151 +472,57 @@ require(['jquery-noconflict'], function($) {
   // ****
   // UI
   // ****
+  function filter_count_rows($) {
+    $('#filter').keyup(function () {
 
-  // insert things into text field at current cursor position
-  // http://stackoverflow.com/questions/11076975/insert-text-into-textarea-at-cursor-position-javascript
-  function insertAtCursor(myField, myValue) {
-    //IE support
-    if (document.selection) {
-      myField.focus();
-      sel = document.selection.createRange();
-      sel.text = myValue;
-    }
-    //MOZILLA and others
-    else if (myField.selectionStart || myField.selectionStart == '0') {
-      var startPos = myField.selectionStart;
-      var endPos = myField.selectionEnd;
-      myField.value = myField.value.substring(0, startPos) +
-          myValue +
-          myField.value.substring(endPos, myField.value.length);
-      myField.selectionStart = startPos + myValue.length;
-      myField.selectionEnd = startPos + myValue.length;
-    }
-    else {
-      myField.value += myValue;
-    }
+        var rex = new RegExp($(this).val(), 'i');
+        $('.searchable tr').hide();
+        var show_count = 0;
+        $('.searchable tr').filter(function () {
+            matches =  rex.test($(this).text());
+            if (matches) {
+                show_count = show_count + 1;
+            }
+            return matches;
+        }).show();
+        $('#count').text(show_count);
+    })
   }
 
-  var slotNames = ['*', 'num_transfers', 'from_stop', 'to_stop', 'direction',
-      'departure_time', 'arrival_time', 'departure_time_rel', 'duration', 'distance',
-      'vehicle', 'line', 'ampm', 'alternative',
-    ];
-  var shorts = ['', '', 'from', 'to', 'dir',
-      '', '', '', '', '',
-      '', 'line', '', '',
-    ];
+  function hide_non_initialized() {
+      var role = document.getElementById("role").textContent;
+      console.log('role:' + role);
+        
+      if (role == 'sys') {
+        $('.usronly').hide();
+      } else if(role == 'usr') {
+        $('.sysonly').hide();
+      } 
 
-  // make clickable, format content
-  function prepareDataItems(data, inputField){
+      $('.checkempty').each(function() {
+        if ($(this).text() == 'No data available') {
+            $(this).hide();
+        }
+      });
 
-    var rawData = data.innerHTML;
-    rawData = rawData.replace(/=([^,;]+)(?=[,;]|$)/g, '=<span class="val">$1</span>');
-    for (var i = 0; i < slotNames.length; ++i){
-      rawData = rawData.replace(slotNames[i] + '=',
-          '<span class="slot">' + slotNames[i] + '</span>=');
-    }
-    $(data).after('<div class="raw_data" style="display:none;">' + rawData + '</div>');
-
-    // convert the values to <span>s
-    data.innerHTML = data.innerHTML.replace(
-        /([^ ]+)=([^,;]+)(?=[,;]|$)/g,
-        function(match, p1, p2){
-          if (p2 == 'next'){
-            return p1 + '=<span class="fuzzy">next/later/after</span>';
-          }
-          if (p2 == 'dontcare'){
-            return p1 + '=<span class="fuzzy">any/don\'t care</span>';
-          }
-          else if (p2 == 'am'){
-            return p1 + '=<span class="fuzzy">am/morning</span>';
-          }
-          else if (p2 == 'pm'){
-            return p1 + '=<span class="fuzzy">pm/afternoon/evening</span>';
-          }
-          else if (p1 == 'departure_time_rel' && p2.match(/^0:/)){
-            return p1 + '=<span class="fuzzy">' + p2.substring(2) + ' minutes</span>';
-          }
-          else if (p1 == 'alternative' && p2.match(/^[1234]$/)){
-            if (p2 == '1'){
-              return p1 + '=<span class="fuzzy">1st</span>';
-            }
-            else if (p2 == '2'){
-              return p1 + '=<span class="fuzzy">2nd</span>';
-            }
-            else if (p2 == '3'){
-              return p1 + '=<span class="fuzzy">3rd</span>';
-            }
-            else if (p2 == '4'){
-              return p1 + '=<span class="fuzzy">4th</span>';
-            }
-          }
-          else if (p2.match(/^(notfound|\?|next|none|[012]|0:30)$/)){
-            return p1 + '=<span class="fuzzy">' + p2 + '</span>';
-          }
-          return p1 + '=<span class="exact">' + p2 + '</span>';
-        });
-
-    // split confirm & reply into two lines
-    data.innerHTML = data.innerHTML.replace(/(confirm|reply|request): /g, "<em>$1:</em> ");
-    data.innerHTML = data.innerHTML.replace(/; <em>/, '<br/><em>');
-
-    // shorten slot names
-    for (var i = 0; i < slotNames.length; ++i){
-      if (shorts[i] !== ''){
-        data.innerHTML = data.innerHTML.replace(slotNames[i] + '=',
-            '<span class="slot-name">' + shorts[i] + '</span>=');
-      }
-      else {
-        data.innerHTML = data.innerHTML.replace(slotNames[i] + '=',
-            '<span class="slot-name"></span>');
-      }
-    }
-
-    // make the spans insert their content to text field on click
-    $(data).find('span.exact').click(
-      function(){
-        insertAtCursor(inputField, $(this).html());
-        inputField.focus();
-        inputField.blur();  // force re-validation
-        inputField.focus();
-      }
-    );
+      $('.checkemptyhistory').each(function() {
+        if ($(this).text() == 'No data available') {
+            $(this).parent().hide();
+        }
+      });
   }
 
   $(document).ready(function(){
-
-    // split double instructions
-    confirmReply = $('strong.confirm-reply');
-    confirmReply.attr('class', 'confirm');
-    confirmReply.after(' and <strong class="reply"></strong>');
-    confirmRequest = $('strong.confirm-request');
-    confirmRequest.attr('class', 'confirm');
-    confirmRequest.after(' and <strong class="request"></strong>');
-
-    // make the instructions more explicit
-    $('strong.confirm').html('confirm that you understand');
-    $('strong.reply').html('answer the question');
-    $('strong.reply').after(' in ');
-    $('strong.request').html('request additional information');
-    $('strong.request').after(' about ');
-    $('strong.apologize').html('apologize that you cannot find what you were asked for');
-    $('strong.apologize').after(' in ');
+    hide_non_initialized();
+    filter_count_rows(jQuery);
 
     // prevent copy-paste from the instructions
     $('.html-element-wrapper').bind("copy paste",function(e) {
       e.preventDefault(); return false;
     });
 
-    var dataInsts = $('.data');
-    var inputFields = $('textarea.reply');
-    for (var i = 0; i < dataInsts.length; ++i){
-      prepareDataItems(dataInsts[i], inputFields[i]);
-    }
     // this will make it crash if the validation server is inaccessible
 // requestExternalValidation('', []); // FIXME uncomment
   });
-
-// FIXME try searchable table 
-// http://jsfiddle.net/giorgitbs/52ak9/1/
 
 });
