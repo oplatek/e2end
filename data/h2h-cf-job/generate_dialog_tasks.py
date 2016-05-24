@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
 Generate continue dialogue Crowdflower task with goal for DSTC2 db.
@@ -113,7 +113,8 @@ class Dialog:
                 d['cons{}'.format(i)] = [c]
             d['role'] = 'sys'
             dialogs.append(Dialog(d))
-
+        print(dialogs)
+        if dialogs:
             return Dialog(pandas.concat([d.df for d in dialogs]))
         else:
             return Dialog({})

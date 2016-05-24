@@ -1,8 +1,8 @@
 <div class="html-element-wrapper">
-<p class="info">
+<div class="info">
 <strong style="display: none">Your role is <span class="role">{{role}}</span></strong>
-</p>
-  <p>
+</div>
+<div class="goals_const">
   <span class="usronly"> You want to know following information about a restaurant</span><br/>
   <strong>
     <em class="goal usronly checkempty" >{{goal0}}</em>
@@ -19,10 +19,10 @@
     <em class="constrain usronly checkempty" >{{cons3}}</em>
     <em class="constrain usronly checkempty" >{{cons4}}</em>
 </strong>
-  </p>
-  <p class="instr">
+</div>
+<div class="instr">
   Please, read and understand the dialogue history, and based on it continue in conversation!
-  </p>
+</div>
   <div class="history">
 
   <div class='sys'><span class="role_header">System 00: </span><span class="checkemptyhistory">{{sys00}}</span></div>
@@ -92,7 +92,7 @@
 <div class="db">
 <div class="input-group"> <span class="input-group-addon">Filter</span>
 
-  <cml:text label="Filter DB" name="filter" class="filter" instructions="If as an hotline operator you need to provide factual informatoin, type here to search rows with matching values. Split multiple values by commas without spaces. E.g. west,expensive if you search for multiple constraints." validates="" />
+  <cml:text label="Filter DB" name="filter" instructions="As an hotline operator you provide factual information from this table, type here to find for restaurants. Split multiple values by commas without spaces. E.g. west,expensive if you search for multiple constraints." validates="" />
 
 </div>
 <div>Number of matching rows in table below <span class="count"><strong>0</strong></span></div>
@@ -109,7 +109,7 @@
 </thead>
 	<tbody class="searchable">
 	<tr class="db_instructions">
-		<td>Type constraints</td>
+		<td>Type users constraints</td>
 		<td>or goals</td>
 		<td>into the </td>
 		<td>Filter DB input</td>
