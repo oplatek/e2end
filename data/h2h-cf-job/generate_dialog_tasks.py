@@ -107,11 +107,13 @@ class Dialog:
             constrains = random.sample(search_by, num_cons)
             constrains = [c for c in constrains if c not in goals]
             constrains = dict([(c, random.sample(list(col_vocabs[c].words), 1)[0]) for c in constrains])
+            # print('constraings', constrains)
             for i, g in enumerate(goals):
                 d['goal{}'.format(i)] = [g]
-            for i, c in enumerate(constrains):
-                d['cons{}'.format(i)] = [c]
+            for i, (k, v) in enumerate(constrains.items()):
+                d['cons{}'.format(i)] = ['%s=%s' % (k, v)]
             d['role'] = 'sys'
+            print(d)
             dialogs.append(Dialog(d))
         if dialogs:
             return Dialog(pandas.concat([d.df for d in dialogs], ignore_index=True))
