@@ -113,20 +113,25 @@ class Dialog:
             for i, (k, v) in enumerate(constrains.items()):
                 d['cons{}'.format(i)] = ['%s=%s' % (k, v)]
             d['role'] = 'sys'
-            print(d)
             dialogs.append(Dialog(d))
         if dialogs:
             return Dialog(pandas.concat([d.df for d in dialogs], ignore_index=True))
         else:
             return Dialog({})
 
-    def insert_empty_sys_utt(self, prob, utterances):
+    def initialize_with_hello(self, prob, sys_utts, usr_utts):
         num_rows = len(self.df.index)
-        k = int(num_rows * prob)
-        utterances = utterances * (int(k / len(utterances)) + 1)
-        idx = list(range(k))
-        d = dict(zip(idx, random.sample(utterances, k)))
+
+        sys_utts = sys_utts * (int(num_rows / len(sys_utts)) + 1)
+        d = dict(zip(range(num_rows), random.sample(sys_utts, num_rows)))
         self.df['sys00'].fillna(d, inplace=True)
+
+        k = int(num_rows * prob)
+        usr_utts = usr_utts * (int(k / len(usr_utts)) + 1)
+        idx = [num_rows - i for i in range(k)]
+        d = dict(zip(idx, random.sample(usr_utts, k)))
+        self.df['usr00'].fillna(d, inplace=True)
+
         other = pandas.DataFrame.from_dict({'role': ['usr'] * len(idx)})
         self.df.update(other)
 
@@ -135,7 +140,7 @@ if __name__ == "__main__":
     ap = ArgumentParser(__doc__)
     ap.add_argument('--seed', type=int, default=123)
     ap.add_argument('--gen_empty', type=int, default=0)
-    ap.add_argument('--empty_insert_sysutt_prob', type=float, default=0.0)
+    ap.add_argument('--hello_sys_prob', type=float, default=0.5)
     ap.add_argument('--db_file', default='../../data/dstc2/data.dstc2.db.json')
     ap.add_argument('--answers', default='')
     ap.add_argument('output_file')
@@ -145,7 +150,7 @@ if __name__ == "__main__":
 
     db = Dstc2DB(c.db_file)
     d = Dialog.generate_empty_with_goals(db, c.gen_empty)
-    d.insert_empty_sys_utt(c.empty_insert_sysutt_prob, ['Hello , welcome to the Cambridge restaurant system? You can ask for restaurants by area , price range or food type . How may I help you?'])
+    d.initialize_with_hello(c.hello_sys_prob, ['Hello , welcome to the Cambridge restaurant system? You can ask for restaurants by area , price range or food type . How may I help you?'], ['Hi'])
     if c.answers:
         a = Dialog.load_answers(c.answers)
         a.filter_answered()
