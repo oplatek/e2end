@@ -62,8 +62,8 @@ require(['jquery-noconflict'], function($) {
 
   // local validation -- just check that all data are included in the answers
   function performLocalValidation(value, data){
-    return "error msg"
     return null;
+    return "error msg"
   }
 
   function getDataItemsFor(element){
@@ -207,9 +207,11 @@ require(['jquery-noconflict'], function($) {
       if (data.role == 'sys') {
         cf_row_main_element.find('.usronly').hide();
         cf_row_main_element.find('.usronly.dummyrequired').text('dummy');
+        cf_row_main_element.find('.rolefull').text('hotline operator');
       } else if(data.role == 'usr') {
         cf_row_main_element.find('.sysonly').hide();
         cf_row_main_element.find('.sysonly.dummyrequired').text('dummy');
+        cf_row_main_element.find('.rolefull').text('client');
       } 
 
       cf_row_main_element.find('.checkempty').each(function() {

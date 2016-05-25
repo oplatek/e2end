@@ -1,7 +1,8 @@
 <div class="html-element-wrapper">
 <h2>Task info</h2>
 <div class="info">
-    Your role is <strong><span class="role">{{role}}</span></strong>
+    <div style="display:none" class="role">{{role}}</div>
+    Your role is <strong><span class="rolefull"></span></strong>
 </div>
 <div class="goals_const">
   <span class="usronly"> You want to know following information about a restaurant</span><br/>
@@ -1102,12 +1103,11 @@
 <hr>
 <cml:group> 
   <cml:hidden name="validation_log" />
-  <cml:checkbox label="Conversation finished" instructions="Check if you the feel that the other interlocutor wants to end the conversation." />
   <cml:textarea label="Client (your) reply:" name="client_reply" instructions="Converse naturally and ask for information about restaurants based on the provided goals." class="usronly dummyrequired" validates="required ss-required yext_no_international_url"></cml:textarea>
   <cml:textarea label="Operator (your) reply:" name="system_reply" instructions="Please, read and understand the dialogue history, and based on it continue in conversation! Respond naturally." class="sysonly dummyrequired" validates="required ss-required yext_no_international_url"></cml:textarea>
+  <cml:checkbox name="finished" label="Conversation finished" instructions="Check if you the feel that the other interlocutor wants to end the conversation." />
+  <cml:checkbox name="goals_satisfied" class="usronly" label="All goals satisfied" instructions="Check if all information requested to find out in this task was alread answered" />
+  <cml:checkbox name="error_found" label="Conversation does not make sense" instructions="Mark if some utterance in history does not make sense. Still provide your own reply so the conversation can continue." />
+<cml:text name="error_utt" only-if="!error_found:unchecked" label="Error utterance" instructions="If you spot an illogical replies in the history above, write the number of first illogical reply here." validates="positiveInteger" />
 </cml:group> 
-<cml:group>
-<cml:text label="Error utterance (optional)" name="error_utt" instructions="If you spot an illogical replies in the history above, write the number of first illogical reply here." validates="positiveInteger" />
-<cml:checkbox class="usronly" label="All goals satisfied" instructions="Check if all information requested to find out in this task was alread answered" />
-</cml:group>
 </div>
