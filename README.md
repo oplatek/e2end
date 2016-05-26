@@ -3,12 +3,10 @@ End-to-End Neural Dialog
 
 Todo
 ----
-popis tasku z DSTC2
-zapnout ondruv spellchecker
-zmenit cil dynamicky aby nerikali goaly vsechny najednou
-pouzit softmax misto sigmoidy
-trenovat binarni klasifikatory pro vyber radku
-
+- CF: zapnout ondruv spellchecker
+- CF: zmenit cil dynamicky aby nerikali goaly vsechny najednou
+- pouzit softmax misto sigmoidy
+- trenovat binarni klasifikatory pro vyber radku
 - enforce decoder embeddings to be the same to DB and WORD embeddings (or make them close together - too complicated rather the same)
     - model:410 - TODO TEST
 - reward function based on the dialog state
