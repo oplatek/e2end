@@ -2,10 +2,13 @@
 <h2>Task info</h2>
 <div class="info">
     <div style="display:none" class="role">{{role}}</div>
-    Your role is <strong><span class="rolefull"></span></strong>
+    Your role is <strong>
+        <span class="sysonly sys">Hotline Operator</span>
+        <span class="usronly user">Client</span>
+    </strong>
 </div>
 <span class="sysonly"> User can ask you for restaurants by area, price range or food type. You can find information about the restaurants in the Restaurants database - table below.</span><br/>
-<div class="goals_const">
+<div class="goals_const usronly">
   <span class="usronly"> You want to know following information about a restaurant</span><br/>
   <strong>
     <em class="goal usronly checkempty" >{{goal0}}</em>
@@ -13,8 +16,8 @@
     <em class="goal usronly checkempty" >{{goal2}}</em>
     <em class="goal usronly checkempty" >{{goal3}}</em>
     <em class="goal usronly checkempty" >{{goal4}}</em>
-</strong>
-    <br/><span class="usronly"> but you are interested only in restaurant with following properties</span><br/>
+</strong><br/>
+<span class="usronly constinfo"> but you are interested only in restaurant with following properties</span><br/>
 <strong>
     <em class="constrain usronly checkempty" >{{cons0}}</em>
     <em class="constrain usronly checkempty" >{{cons1}}</em>
@@ -22,95 +25,105 @@
     <em class="constrain usronly checkempty" >{{cons3}}</em>
     <em class="constrain usronly checkempty" >{{cons4}}</em>
 </strong>
+<br/>
+Ask about the information gradually. Ask only about <strong>one peace of information</strong> in your reply!
 </div>
 <hr>
 <h2> Conversation history</h2>
   <div class="history">
 
-  <div class='sys'><span class="role_header">System 01: </span><br/><span class="checkemptyhistory">{{sys00}}</span></div>
-  <div class='user'><span class="role_header">User   02:</span><br/><span class="checkemptyhistory">{{usr00}}</span></div>
-  <div class='sys'><span class="role_header">System 04: </span><br/><span class="checkemptyhistory">{{sys01}}</span></div>
-  <div class='user'><span class="role_header">User   05:</span><br/><span class="checkemptyhistory">{{usr01}}</span></div>
-  <div class='sys'><span class="role_header">System 06: </span><br/><span class="checkemptyhistory">{{sys02}}</span></div>
-  <div class='user'><span class="role_header">User   07:</span><br/><span class="checkemptyhistory">{{usr02}}</span></div>
-  <div class='sys'><span class="role_header">System 08: </span><br/><span class="checkemptyhistory">{{sys03}}</span></div>
-  <div class='user'><span class="role_header">User   09:</span><br/><span class="checkemptyhistory">{{usr03}}</span></div>
-  <div class='sys'><span class="role_header">System 10: </span><br/><span class="checkemptyhistory">{{sys04}}</span></div>
-  <div class='user'><span class="role_header">User   11:</span><br/><span class="checkemptyhistory">{{usr04}}</span></div>
-  <div class='sys'><span class="role_header">System 12: </span><br/><span class="checkemptyhistory">{{sys05}}</span></div>
-  <div class='user'><span class="role_header">User   13:</span><br/><span class="checkemptyhistory">{{usr05}}</span></div>
-  <div class='sys'><span class="role_header">System 14: </span><br/><span class="checkemptyhistory">{{sys06}}</span></div>
-  <div class='user'><span class="role_header">User   15:</span><br/><span class="checkemptyhistory">{{usr06}}</span></div>
-  <div class='sys'><span class="role_header">System 16: </span><br/><span class="checkemptyhistory">{{sys07}}</span></div>
-  <div class='user'><span class="role_header">User   17:</span><br/><span class="checkemptyhistory">{{usr07}}</span></div>
-  <div class='sys'><span class="role_header">System 18: </span><br/><span class="checkemptyhistory">{{sys08}}</span></div>
-  <div class='user'><span class="role_header">User   19:</span><br/><span class="checkemptyhistory">{{usr08}}</span></div>
-  <div class='sys'><span class="role_header">System 20: </span><br/><span class="checkemptyhistory">{{sys09}}</span></div>
-  <div class='user'><span class="role_header">User   21:</span><br/><span class="checkemptyhistory">{{usr09}}</span></div>
+  <div class='sys'><span class="role_header">01 Operator: </span><br/><span class="checkemptyhistory">{{sys00}}</span></div>
+  <div class='user'><span class="role_header">02 Client:</span><br/><span class="checkemptyhistory">{{usr00}}</span></div>
+  <div class='sys'><span class="role_header">04 Operator: </span><br/><span class="checkemptyhistory">{{sys01}}</span></div>
+  <div class='user'><span class="role_header">05 Client:</span><br/><span class="checkemptyhistory">{{usr01}}</span></div>
+  <div class='sys'><span class="role_header">06 Operator: </span><br/><span class="checkemptyhistory">{{sys02}}</span></div>
+  <div class='user'><span class="role_header">07 Client:</span><br/><span class="checkemptyhistory">{{usr02}}</span></div>
+  <div class='sys'><span class="role_header">08 Operator: </span><br/><span class="checkemptyhistory">{{sys03}}</span></div>
+  <div class='user'><span class="role_header">09 Client:</span><br/><span class="checkemptyhistory">{{usr03}}</span></div>
+  <div class='sys'><span class="role_header">10 Operator: </span><br/><span class="checkemptyhistory">{{sys04}}</span></div>
+  <div class='user'><span class="role_header">11 Client:</span><br/><span class="checkemptyhistory">{{usr04}}</span></div>
+  <div class='sys'><span class="role_header">12 Operator: </span><br/><span class="checkemptyhistory">{{sys05}}</span></div>
+  <div class='user'><span class="role_header">13 Client:</span><br/><span class="checkemptyhistory">{{usr05}}</span></div>
+  <div class='sys'><span class="role_header">14 Operator: </span><br/><span class="checkemptyhistory">{{sys06}}</span></div>
+  <div class='user'><span class="role_header">15 Client:</span><br/><span class="checkemptyhistory">{{usr06}}</span></div>
+  <div class='sys'><span class="role_header">16 Operator: </span><br/><span class="checkemptyhistory">{{sys07}}</span></div>
+  <div class='user'><span class="role_header">17 Client:</span><br/><span class="checkemptyhistory">{{usr07}}</span></div>
+  <div class='sys'><span class="role_header">18 Operator: </span><br/><span class="checkemptyhistory">{{sys08}}</span></div>
+  <div class='user'><span class="role_header">19 Client:</span><br/><span class="checkemptyhistory">{{usr08}}</span></div>
+  <div class='sys'><span class="role_header">20 Operator: </span><br/><span class="checkemptyhistory">{{sys09}}</span></div>
+  <div class='user'><span class="role_header">21 Client:</span><br/><span class="checkemptyhistory">{{usr09}}</span></div>
 
-  <div class='sys'><span class="role_header">System 22: </span><br/><span class="checkemptyhistory">{{sys10}}</span></div>
-  <div class='user'><span class="role_header">User   23:</span><br/><span class="checkemptyhistory">{{usr10}}</span></div>
-  <div class='sys'><span class="role_header">System 24: </span><br/><span class="checkemptyhistory">{{sys11}}</span></div>
-  <div class='user'><span class="role_header">User   25:</span><br/><span class="checkemptyhistory">{{usr11}}</span></div>
-  <div class='sys'><span class="role_header">System 26: </span><br/><span class="checkemptyhistory">{{sys12}}</span></div>
-  <div class='user'><span class="role_header">User   27:</span><br/><span class="checkemptyhistory">{{usr12}}</span></div>
-  <div class='sys'><span class="role_header">System 28: </span><br/><span class="checkemptyhistory">{{sys13}}</span></div>
-  <div class='user'><span class="role_header">User   29:</span><br/><span class="checkemptyhistory">{{usr13}}</span></div>
-  <div class='sys'><span class="role_header">System 30: </span><br/><span class="checkemptyhistory">{{sys14}}</span></div>
-  <div class='user'><span class="role_header">User   32:</span><br/><span class="checkemptyhistory">{{usr14}}</span></div>
-  <div class='sys'><span class="role_header">System 33: </span><br/><span class="checkemptyhistory">{{sys15}}</span></div>
-  <div class='user'><span class="role_header">User   34:</span><br/><span class="checkemptyhistory">{{usr15}}</span></div>
-  <div class='sys'><span class="role_header">System 35: </span><br/><span class="checkemptyhistory">{{sys16}}</span></div>
-  <div class='user'><span class="role_header">User   36:</span><br/><span class="checkemptyhistory">{{usr16}}</span></div>
-  <div class='sys'><span class="role_header">System 37: </span><br/><span class="checkemptyhistory">{{sys17}}</span></div>
-  <div class='user'><span class="role_header">User   38:</span><br/><span class="checkemptyhistory">{{usr17}}</span></div>
-  <div class='sys'><span class="role_header">System 39: </span><br/><span class="checkemptyhistory">{{sys18}}</span></div>
-  <div class='user'><span class="role_header">User   40:</span><br/><span class="checkemptyhistory">{{usr18}}</span></div>
-  <div class='sys'><span class="role_header">System 41: </span><br/><span class="checkemptyhistory">{{sys19}}</span></div>
-  <div class='user'><span class="role_header">User   42:</span><br/><span class="checkemptyhistory">{{usr19}}</span></div>
+  <div class='sys'><span class="role_header">22 Operator: </span><br/><span class="checkemptyhistory">{{sys10}}</span></div>
+  <div class='user'><span class="role_header">23 Client:</span><br/><span class="checkemptyhistory">{{usr10}}</span></div>
+  <div class='sys'><span class="role_header">24 Operator: </span><br/><span class="checkemptyhistory">{{sys11}}</span></div>
+  <div class='user'><span class="role_header">25 Client:</span><br/><span class="checkemptyhistory">{{usr11}}</span></div>
+  <div class='sys'><span class="role_header">26 Operator: </span><br/><span class="checkemptyhistory">{{sys12}}</span></div>
+  <div class='user'><span class="role_header">27 Client:</span><br/><span class="checkemptyhistory">{{usr12}}</span></div>
+  <div class='sys'><span class="role_header">28 Operator: </span><br/><span class="checkemptyhistory">{{sys13}}</span></div>
+  <div class='user'><span class="role_header">29 Client:</span><br/><span class="checkemptyhistory">{{usr13}}</span></div>
+  <div class='sys'><span class="role_header">30 Operator: </span><br/><span class="checkemptyhistory">{{sys14}}</span></div>
+  <div class='user'><span class="role_header">32 Client:</span><br/><span class="checkemptyhistory">{{usr14}}</span></div>
+  <div class='sys'><span class="role_header">33 Operator: </span><br/><span class="checkemptyhistory">{{sys15}}</span></div>
+  <div class='user'><span class="role_header">34 Client:</span><br/><span class="checkemptyhistory">{{usr15}}</span></div>
+  <div class='sys'><span class="role_header">35 Operator: </span><br/><span class="checkemptyhistory">{{sys16}}</span></div>
+  <div class='user'><span class="role_header">36 Client:</span><br/><span class="checkemptyhistory">{{usr16}}</span></div>
+  <div class='sys'><span class="role_header">37 Operator: </span><br/><span class="checkemptyhistory">{{sys17}}</span></div>
+  <div class='user'><span class="role_header">38 Client:</span><br/><span class="checkemptyhistory">{{usr17}}</span></div>
+  <div class='sys'><span class="role_header">39 Operator: </span><br/><span class="checkemptyhistory">{{sys18}}</span></div>
+  <div class='user'><span class="role_header">40 Client:</span><br/><span class="checkemptyhistory">{{usr18}}</span></div>
+  <div class='sys'><span class="role_header">41 Operator: </span><br/><span class="checkemptyhistory">{{sys19}}</span></div>
+  <div class='user'><span class="role_header">42 Client:</span><br/><span class="checkemptyhistory">{{usr19}}</span></div>
 
-  <div class='sys'><span class="role_header">System 43: </span><br/><span class="checkemptyhistory">{{sys20}}</span></div>
-  <div class='user'><span class="role_header">User   44:</span><br/><span class="checkemptyhistory">{{usr20}}</span></div>
-  <div class='sys'><span class="role_header">System 45: </span><br/><span class="checkemptyhistory">{{sys21}}</span></div>
-  <div class='user'><span class="role_header">User   46:</span><br/><span class="checkemptyhistory">{{usr21}}</span></div>
-  <div class='sys'><span class="role_header">System 47: </span><br/><span class="checkemptyhistory">{{sys22}}</span></div>
-  <div class='user'><span class="role_header">User   48:</span><br/><span class="checkemptyhistory">{{usr22}}</span></div>
-  <div class='sys'><span class="role_header">System 49: </span><br/><span class="checkemptyhistory">{{sys23}}</span></div>
-  <div class='user'><span class="role_header">User   50:</span><br/><span class="checkemptyhistory">{{usr23}}</span></div>
-  <div class='sys'><span class="role_header">System 51: </span><br/><span class="checkemptyhistory">{{sys24}}</span></div>
-  <div class='user'><span class="role_header">User   52:</span><br/><span class="checkemptyhistory">{{usr24}}</span></div>
-  <div class='sys'><span class="role_header">System 53: </span><br/><span class="checkemptyhistory">{{sys25}}</span></div>
-  <div class='user'><span class="role_header">User   54:</span><br/><span class="checkemptyhistory">{{usr25}}</span></div>
-  <div class='sys'><span class="role_header">System 55: </span><br/><span class="checkemptyhistory">{{sys26}}</span></div>
-  <div class='user'><span class="role_header">User   56:</span><br/><span class="checkemptyhistory">{{usr26}}</span></div>
-  <div class='sys'><span class="role_header">System 57: </span><br/><span class="checkemptyhistory">{{sys27}}</span></div>
-  <div class='user'><span class="role_header">User   58:</span><br/><span class="checkemptyhistory">{{usr27}}</span></div>
-  <div class='sys'><span class="role_header">System 59: </span><br/><span class="checkemptyhistory">{{sys28}}</span></div>
-  <div class='user'><span class="role_header">User   60:</span><br/><span class="checkemptyhistory">{{usr28}}</span></div>
-  <div class='sys'><span class="role_header">System 61: </span><br/><span class="checkemptyhistory">{{sys29}}</span></div>
-  <div class='user'><span class="role_header">User   62:</span><br/><span class="checkemptyhistory">{{usr29}}</span></div>
+  <div class='sys'><span class="role_header">43 Operator: </span><br/><span class="checkemptyhistory">{{sys20}}</span></div>
+  <div class='user'><span class="role_header">44 Client:</span><br/><span class="checkemptyhistory">{{usr20}}</span></div>
+  <div class='sys'><span class="role_header">45 Operator: </span><br/><span class="checkemptyhistory">{{sys21}}</span></div>
+  <div class='user'><span class="role_header">46 Client:</span><br/><span class="checkemptyhistory">{{usr21}}</span></div>
+  <div class='sys'><span class="role_header">47 Operator: </span><br/><span class="checkemptyhistory">{{sys22}}</span></div>
+  <div class='user'><span class="role_header">48 Client:</span><br/><span class="checkemptyhistory">{{usr22}}</span></div>
+  <div class='sys'><span class="role_header">49 Operator: </span><br/><span class="checkemptyhistory">{{sys23}}</span></div>
+  <div class='user'><span class="role_header">50 Client:</span><br/><span class="checkemptyhistory">{{usr23}}</span></div>
+  <div class='sys'><span class="role_header">51 Operator: </span><br/><span class="checkemptyhistory">{{sys24}}</span></div>
+  <div class='user'><span class="role_header">52 Client:</span><br/><span class="checkemptyhistory">{{usr24}}</span></div>
+  <div class='sys'><span class="role_header">53 Operator: </span><br/><span class="checkemptyhistory">{{sys25}}</span></div>
+  <div class='user'><span class="role_header">54 Client:</span><br/><span class="checkemptyhistory">{{usr25}}</span></div>
+  <div class='sys'><span class="role_header">55 Operator: </span><br/><span class="checkemptyhistory">{{sys26}}</span></div>
+  <div class='user'><span class="role_header">56 Client:</span><br/><span class="checkemptyhistory">{{usr26}}</span></div>
+  <div class='sys'><span class="role_header">57 Operator: </span><br/><span class="checkemptyhistory">{{sys27}}</span></div>
+  <div class='user'><span class="role_header">58 Client:</span><br/><span class="checkemptyhistory">{{usr27}}</span></div>
+  <div class='sys'><span class="role_header">59 Operator: </span><br/><span class="checkemptyhistory">{{sys28}}</span></div>
+  <div class='user'><span class="role_header">60 Client:</span><br/><span class="checkemptyhistory">{{usr28}}</span></div>
+  <div class='sys'><span class="role_header">61 Operator: </span><br/><span class="checkemptyhistory">{{sys29}}</span></div>
+  <div class='user'><span class="role_header">62 Client:</span><br/><span class="checkemptyhistory">{{usr29}}</span></div>
 
 </div>
 <hr>
 <div class="db sysonly">
 <hr>
   <cml:hidden name="num_rows_selected" validates="required" />
-<div>Number of matching rows in table below<span class="count"><strong>0</strong></span></div>
- <cml:text label="Filter DB" name="filter" instructions="As an hotline operator you provide factual information about restaurants from this table. If you search with multiple constrains split them by commas without spaces. E.g. 'west,expensive'" validates="" />
+<div>Number of matching rows in table below <span class="count"><strong>0</strong></span></div>
+<cml:text label="Filter DB" name="filter"  validates="">
+    <cml:instructions>
+    As an hotline operator you provide factual information about restaurants from this table. <br/>
+    If you search using <strong>multiple constrains split them by commans without spaces</strong>. E.g. 'west,expensive' <br/>
+    <strong>Check the checkbox for each row if you talk about it in your reply.</strong>You find the checkbox in the first column "In reply?".
+    </cml:instructions> 
+</cml:text>
 <table class="table table-striped">	<thead>
 	<tr>
+        <th>In reply?</th>
 		<th>area</th>
 		<th>name</th>
 		<th>pricerange</th>
 		<th>postcode</th>
 		<th>phone</th>
 		<th>food</th>
-		<th>addr</th>
+		<th>address</th>
 	</tr>
 </thead>
 	<tbody class="searchable">
 	<tr class="db_instructions">
-		<td>Type users constraints</td>
+        <td>Type users</td>
+        <td>constraints</td>
 		<td>or goals</td>
 		<td>into the </td>
 		<td>Filter DB input</td>
@@ -118,7 +131,9 @@
 		<td>see valid</td>
 		<td>rows in this table.</td>
 	</tr>
+
 	<tr>
+        <td><cml:checkbox name="0"/></td>
 		<td>west</td>
 		<td>india house</td>
 		<td>expensive</td>
@@ -128,6 +143,7 @@
 		<td>31 newnham road newnham</td>
 	</tr>
 	<tr>
+        <td><cml:checkbox name="1"/></td>
 		<td>east</td>
 		<td>pizza hut fen ditton</td>
 		<td>moderate</td>
@@ -137,6 +153,7 @@
 		<td>cambridge retail park newmarket road fen ditton</td>
 	</tr>
 	<tr>
+        <td><cml:checkbox name="2" /></td>
 		<td>centre</td>
 		<td>michaelhouse cafe</td>
 		<td>expensive</td>
@@ -146,6 +163,7 @@
 		<td>st michael's church trinity street city centre</td>
 	</tr>
 	<tr>
+        <td><cml:checkbox name="3" /></td>
 		<td>north</td>
 		<td>tandoori palace</td>
 		<td>expensive</td>
@@ -155,6 +173,7 @@
 		<td>68 histon road chesterton</td>
 	</tr>
 	<tr>
+        <td><cml:checkbox name="4" /></td>
 		<td>centre</td>
 		<td>hk fusion</td>
 		<td>expensive</td>
@@ -164,6 +183,7 @@
 		<td>21 burleigh street city centre</td>
 	</tr>
 	<tr>
+        <td><cml:checkbox name="5" /></td>
 		<td>centre</td>
 		<td>saffron brasserie</td>
 		<td>expensive</td>
@@ -173,6 +193,7 @@
 		<td>not available</td>
 	</tr>
 	<tr>
+        <td><cml:checkbox name="6" /></td>
 		<td>centre</td>
 		<td>restaurant one seven</td>
 		<td>moderate</td>
@@ -182,6 +203,7 @@
 		<td>de vere university arms regent street city centre</td>
 	</tr>
 	<tr>
+        <td><cml:checkbox name="7" /></td>
 		<td>centre</td>
 		<td>curry king</td>
 		<td>expensive</td>
@@ -191,6 +213,7 @@
 		<td>5 jordans yard bridge street city centre</td>
 	</tr>
 	<tr>
+        <td><cml:checkbox name="8" /></td>
 		<td>south</td>
 		<td>frankie and bennys</td>
 		<td>expensive</td>
@@ -200,6 +223,7 @@
 		<td>cambridge leisure park clifton way cherry hinton</td>
 	</tr>
 	<tr>
+        <td><cml:checkbox name="9" /></td>
 		<td>centre</td>
 		<td>don pasquale pizzeria</td>
 		<td>expensive</td>
@@ -209,6 +233,7 @@
 		<td>12 market hill city centre</td>
 	</tr>
 	<tr>
+        <td><cml:checkbox name="10" /></td>
 		<td>centre</td>
 		<td>j restaurant</td>
 		<td>cheap</td>
@@ -218,6 +243,7 @@
 		<td>86 regent street city centre</td>
 	</tr>
 	<tr>
+        <td><cml:checkbox name="11" /></td>
 		<td>south</td>
 		<td>the lucky star</td>
 		<td>cheap</td>
@@ -227,6 +253,7 @@
 		<td>cambridge leisure park clifton way cherry hinton</td>
 	</tr>
 	<tr>
+        <td><cml:checkbox name="12" /></td>
 		<td>centre</td>
 		<td>meze bar restaurant</td>
 		<td>expensive</td>
@@ -236,6 +263,7 @@
 		<td>196 mill road city centre</td>
 	</tr>
 	<tr>
+        <td><cml:checkbox name="13" /></td>
 		<td>centre</td>
 		<td>clowns cafe</td>
 		<td>expensive</td>
@@ -245,6 +273,7 @@
 		<td>not available</td>
 	</tr>
 	<tr>
+        <td><cml:checkbox name="14" /></td>
 		<td>centre</td>
 		<td>ali baba</td>
 		<td>moderate</td>
@@ -254,6 +283,7 @@
 		<td>59 hills road city centre</td>
 	</tr>
 	<tr>
+        <td><cml:checkbox name="15" /></td>
 		<td>south</td>
 		<td>restaurant alimentum</td>
 		<td>moderate</td>
@@ -263,6 +293,7 @@
 		<td>152 - 154 hills road</td>
 	</tr>
 	<tr>
+        <td><cml:checkbox name="16" /></td>
 		<td>not available</td>
 		<td>the golden curry</td>
 		<td>expensive</td>
@@ -272,6 +303,7 @@
 		<td>not available</td>
 	</tr>
 	<tr>
+        <td><cml:checkbox name="17" /></td>
 		<td>centre</td>
 		<td>cote</td>
 		<td>expensive</td>
@@ -281,6 +313,7 @@
 		<td>bridge street city centre</td>
 	</tr>
 	<tr>
+        <td><cml:checkbox name="18" /></td>
 		<td>west</td>
 		<td>thanh binh</td>
 		<td>cheap</td>
@@ -290,6 +323,7 @@
 		<td>17 magdalene street city centre</td>
 	</tr>
 	<tr>
+        <td><cml:checkbox name="19" /></td>
 		<td>north</td>
 		<td>the nirala</td>
 		<td>moderate</td>
@@ -299,6 +333,7 @@
 		<td>7 milton road chesterton</td>
 	</tr>
 	<tr>
+        <td><cml:checkbox name="20" /></td>
 		<td>centre</td>
 		<td>cotto</td>
 		<td>moderate</td>
@@ -308,6 +343,7 @@
 		<td>183 east road city centre</td>
 	</tr>
 	<tr>
+        <td><cml:checkbox name="21" /></td>
 		<td>centre</td>
 		<td>zizzi cambridge</td>
 		<td>cheap</td>
@@ -317,6 +353,7 @@
 		<td>47-53 regent street</td>
 	</tr>
 	<tr>
+        <td><cml:checkbox name="22" /></td>
 		<td>centre</td>
 		<td>panahar</td>
 		<td>expensive</td>
@@ -326,6 +363,7 @@
 		<td>not available</td>
 	</tr>
 	<tr>
+        <td><cml:checkbox name="23" /></td>
 		<td>centre</td>
 		<td>backstreet bistro</td>
 		<td>expensive</td>
@@ -335,6 +373,7 @@
 		<td>2 sturton street city centre</td>
 	</tr>
 	<tr>
+        <td><cml:checkbox name="24" /></td>
 		<td>east</td>
 		<td>yu garden</td>
 		<td>expensive</td>
@@ -344,6 +383,7 @@
 		<td>529 newmarket road fen ditton</td>
 	</tr>
 	<tr>
+        <td><cml:checkbox name="25" /></td>
 		<td>centre</td>
 		<td>loch fyne</td>
 		<td>expensive</td>
@@ -353,6 +393,7 @@
 		<td>the little rose 37 trumpington street</td>
 	</tr>
 	<tr>
+        <td><cml:checkbox name="26" /></td>
 		<td>centre</td>
 		<td>golden house</td>
 		<td>cheap</td>
@@ -362,6 +403,7 @@
 		<td>12 lensfield road city centre</td>
 	</tr>
 	<tr>
+        <td><cml:checkbox name="27" /></td>
 		<td>south</td>
 		<td>peking restaurant</td>
 		<td>expensive</td>
@@ -371,6 +413,7 @@
 		<td>10 homerton street city centre</td>
 	</tr>
 	<tr>
+        <td><cml:checkbox name="28" /></td>
 		<td>west</td>
 		<td>sala thong</td>
 		<td>expensive</td>
@@ -380,6 +423,7 @@
 		<td>35 newnham road newnham</td>
 	</tr>
 	<tr>
+        <td><cml:checkbox name="29" /></td>
 		<td>north</td>
 		<td>hakka</td>
 		<td>expensive</td>
@@ -389,6 +433,7 @@
 		<td>milton road chesterton</td>
 	</tr>
 	<tr>
+        <td><cml:checkbox name="30" /></td>
 		<td>centre</td>
 		<td>fitzbillies restaurant</td>
 		<td>expensive</td>
@@ -398,6 +443,7 @@
 		<td>51 trumpington street city centre</td>
 	</tr>
 	<tr>
+        <td><cml:checkbox name="31" /></td>
 		<td>east</td>
 		<td>sitar tandoori</td>
 		<td>expensive</td>
@@ -407,6 +453,7 @@
 		<td>43 high street cherry hinton cherry hinton</td>
 	</tr>
 	<tr>
+        <td><cml:checkbox name="32" /></td>
 		<td>centre</td>
 		<td>eraina</td>
 		<td>expensive</td>
@@ -416,6 +463,7 @@
 		<td>free school lane city centre</td>
 	</tr>
 	<tr>
+        <td><cml:checkbox name="33" /></td>
 		<td>south</td>
 		<td>taj tandoori</td>
 		<td>expensive</td>
@@ -425,6 +473,7 @@
 		<td>64 cherry hinton road cherry hinton</td>
 	</tr>
 	<tr>
+        <td><cml:checkbox name="34" /></td>
 		<td>south</td>
 		<td>the good luck chinese food takeaway</td>
 		<td>expensive</td>
@@ -434,6 +483,7 @@
 		<td>82 cherry hinton road cherry hinton</td>
 	</tr>
 	<tr>
+        <td><cml:checkbox name="35" /></td>
 		<td>north</td>
 		<td>da vinci pizzeria</td>
 		<td>cheap</td>
@@ -443,6 +493,7 @@
 		<td>20 milton road chesterton</td>
 	</tr>
 	<tr>
+        <td><cml:checkbox name="36" /></td>
 		<td>north</td>
 		<td>the hotpot</td>
 		<td>expensive</td>
@@ -452,6 +503,7 @@
 		<td>66 chesterton road chesterton</td>
 	</tr>
 	<tr>
+        <td><cml:checkbox name="37" /></td>
 		<td>centre</td>
 		<td>jinling noodle bar</td>
 		<td>moderate</td>
@@ -461,6 +513,7 @@
 		<td>11 peas hill city centre</td>
 	</tr>
 	<tr>
+        <td><cml:checkbox name="38" /></td>
 		<td>centre</td>
 		<td>anatolia</td>
 		<td>moderate</td>
@@ -470,6 +523,7 @@
 		<td>30 bridge street city centre</td>
 	</tr>
 	<tr>
+        <td><cml:checkbox name="39" /></td>
 		<td>centre</td>
 		<td>la tasca</td>
 		<td>moderate</td>
@@ -479,6 +533,7 @@
 		<td>14 -16 bridge street</td>
 	</tr>
 	<tr>
+        <td><cml:checkbox name="40" /></td>
 		<td>centre</td>
 		<td>pizza express</td>
 		<td>moderate</td>
@@ -488,6 +543,7 @@
 		<td>not available</td>
 	</tr>
 	<tr>
+        <td><cml:checkbox name="41" /></td>
 		<td>centre</td>
 		<td>charlie chan</td>
 		<td>cheap</td>
@@ -497,6 +553,7 @@
 		<td>regent street city centre</td>
 	</tr>
 	<tr>
+        <td><cml:checkbox name="42" /></td>
 		<td>west</td>
 		<td>travellers rest</td>
 		<td>expensive</td>
@@ -506,6 +563,7 @@
 		<td>huntingdon road city centre</td>
 	</tr>
 	<tr>
+        <td><cml:checkbox name="43" /></td>
 		<td>centre</td>
 		<td>gourmet burger kitchen</td>
 		<td>expensive</td>
@@ -515,6 +573,7 @@
 		<td>regent street city centre</td>
 	</tr>
 	<tr>
+        <td><cml:checkbox name="44" /></td>
 		<td>centre</td>
 		<td>bangkok city</td>
 		<td>expensive</td>
@@ -524,6 +583,7 @@
 		<td>24 green street city centre</td>
 	</tr>
 	<tr>
+        <td><cml:checkbox name="45" /></td>
 		<td>east</td>
 		<td>curry prince</td>
 		<td>moderate</td>
@@ -533,6 +593,7 @@
 		<td>451 newmarket road fen ditton</td>
 	</tr>
 	<tr>
+        <td><cml:checkbox name="46" /></td>
 		<td>east</td>
 		<td>pipasha restaurant</td>
 		<td>expensive</td>
@@ -542,6 +603,7 @@
 		<td>newmarket road fen ditton</td>
 	</tr>
 	<tr>
+        <td><cml:checkbox name="47" /></td>
 		<td>centre</td>
 		<td>dojo noodle bar</td>
 		<td>cheap</td>
@@ -551,6 +613,7 @@
 		<td>40210 millers yard city centre</td>
 	</tr>
 	<tr>
+        <td><cml:checkbox name="48" /></td>
 		<td>centre</td>
 		<td>wagamama</td>
 		<td>expensive</td>
@@ -560,6 +623,7 @@
 		<td>36 saint andrews street</td>
 	</tr>
 	<tr>
+        <td><cml:checkbox name="49" /></td>
 		<td>not available</td>
 		<td>sesame restaurant and bar</td>
 		<td>expensive</td>
@@ -569,6 +633,7 @@
 		<td>not available</td>
 	</tr>
 	<tr>
+        <td><cml:checkbox name="50" /></td>
 		<td>centre</td>
 		<td>ask</td>
 		<td>cheap</td>
@@ -578,6 +643,7 @@
 		<td>12 bridge street city centre</td>
 	</tr>
 	<tr>
+        <td><cml:checkbox name="51" /></td>
 		<td>west</td>
 		<td>maharajah tandoori restaurant</td>
 		<td>expensive</td>
@@ -587,6 +653,7 @@
 		<td>41518 castle street city centre</td>
 	</tr>
 	<tr>
+        <td><cml:checkbox name="52" /></td>
 		<td>centre</td>
 		<td>riverside brasserie</td>
 		<td>moderate</td>
@@ -596,6 +663,7 @@
 		<td>doubletree by hilton cambridge granta place mill lane</td>
 	</tr>
 	<tr>
+        <td><cml:checkbox name="53" /></td>
 		<td>centre</td>
 		<td>efes restaurant</td>
 		<td>moderate</td>
@@ -605,6 +673,7 @@
 		<td>king street city centre</td>
 	</tr>
 	<tr>
+        <td><cml:checkbox name="54" /></td>
 		<td>centre</td>
 		<td>yippee noodle bar</td>
 		<td>moderate</td>
@@ -614,6 +683,7 @@
 		<td>40428 king street city centre</td>
 	</tr>
 	<tr>
+        <td><cml:checkbox name="55" /></td>
 		<td>centre</td>
 		<td>shanghai family restaurant</td>
 		<td>moderate</td>
@@ -623,6 +693,7 @@
 		<td>39 burleigh street city centre</td>
 	</tr>
 	<tr>
+        <td><cml:checkbox name="56" /></td>
 		<td>centre</td>
 		<td>kohinoor</td>
 		<td>cheap</td>
@@ -632,6 +703,7 @@
 		<td>74 mill road city centre</td>
 	</tr>
 	<tr>
+        <td><cml:checkbox name="57" /></td>
 		<td>centre</td>
 		<td>the varsity restaurant</td>
 		<td>moderate</td>
@@ -641,6 +713,7 @@
 		<td>35 saint andrews street city centre</td>
 	</tr>
 	<tr>
+        <td><cml:checkbox name="58" /></td>
 		<td>west</td>
 		<td>cambridge lodge restaurant</td>
 		<td>expensive</td>
@@ -650,6 +723,7 @@
 		<td>cambridge lodge hotel 139 huntingdon road city centre</td>
 	</tr>
 	<tr>
+        <td><cml:checkbox name="59" /></td>
 		<td>centre</td>
 		<td>la mimosa</td>
 		<td>expensive</td>
@@ -659,6 +733,7 @@
 		<td>thompsons lane fen ditton</td>
 	</tr>
 	<tr>
+        <td><cml:checkbox name="60" /></td>
 		<td>west</td>
 		<td>la margherita</td>
 		<td>cheap</td>
@@ -668,6 +743,7 @@
 		<td>15 magdalene street city centre</td>
 	</tr>
 	<tr>
+        <td><cml:checkbox name="61" /></td>
 		<td>east</td>
 		<td>the missing sock</td>
 		<td>cheap</td>
@@ -677,6 +753,7 @@
 		<td>finders corner newmarket road</td>
 	</tr>
 	<tr>
+        <td><cml:checkbox name="62" /></td>
 		<td>centre</td>
 		<td>curry garden</td>
 		<td>expensive</td>
@@ -686,6 +763,7 @@
 		<td>106 regent street city centre</td>
 	</tr>
 	<tr>
+        <td><cml:checkbox name="63" /></td>
 		<td>east</td>
 		<td>grafton hotel restaurant</td>
 		<td>expensive</td>
@@ -695,6 +773,7 @@
 		<td>grafton hotel 619 newmarket road fen ditton</td>
 	</tr>
 	<tr>
+        <td><cml:checkbox name="64" /></td>
 		<td>centre</td>
 		<td>the gardenia</td>
 		<td>cheap</td>
@@ -704,6 +783,7 @@
 		<td>2 rose crescent city centre</td>
 	</tr>
 	<tr>
+        <td><cml:checkbox name="65" /></td>
 		<td>centre</td>
 		<td>rice house</td>
 		<td>cheap</td>
@@ -713,6 +793,7 @@
 		<td>88 mill road city centre</td>
 	</tr>
 	<tr>
+        <td><cml:checkbox name="66" /></td>
 		<td>centre</td>
 		<td>bedouin</td>
 		<td>expensive</td>
@@ -722,6 +803,7 @@
 		<td>100 mill road city centre</td>
 	</tr>
 	<tr>
+        <td><cml:checkbox name="67" /></td>
 		<td>centre</td>
 		<td>pizza hut city centre</td>
 		<td>cheap</td>
@@ -731,6 +813,7 @@
 		<td>regent street city centre</td>
 	</tr>
 	<tr>
+        <td><cml:checkbox name="68" /></td>
 		<td>centre</td>
 		<td>pizza express fen ditton</td>
 		<td>moderate</td>
@@ -740,6 +823,7 @@
 		<td>jesus lane fen ditton</td>
 	</tr>
 	<tr>
+        <td><cml:checkbox name="69" /></td>
 		<td>south</td>
 		<td>chiquito restaurant bar</td>
 		<td>expensive</td>
@@ -749,6 +833,7 @@
 		<td>2g cambridge leisure park cherry hinton road cherry hinton</td>
 	</tr>
 	<tr>
+        <td><cml:checkbox name="70" /></td>
 		<td>centre</td>
 		<td>kymmoy</td>
 		<td>expensive</td>
@@ -758,6 +843,7 @@
 		<td>52 mill road city centre</td>
 	</tr>
 	<tr>
+        <td><cml:checkbox name="71" /></td>
 		<td>centre</td>
 		<td>the river bar steakhouse and grill</td>
 		<td>cheap</td>
@@ -767,6 +853,7 @@
 		<td>quayside off bridge street</td>
 	</tr>
 	<tr>
+        <td><cml:checkbox name="72" /></td>
 		<td>centre</td>
 		<td>bloomsbury restaurant</td>
 		<td>moderate</td>
@@ -776,6 +863,7 @@
 		<td>crowne plaza hotel 20 downing street</td>
 	</tr>
 	<tr>
+        <td><cml:checkbox name="73" /></td>
 		<td>north</td>
 		<td>saigon city</td>
 		<td>expensive</td>
@@ -785,6 +873,7 @@
 		<td>169 high street chesterton chesterton</td>
 	</tr>
 	<tr>
+        <td><cml:checkbox name="74" /></td>
 		<td>west</td>
 		<td>prezzo</td>
 		<td>moderate</td>
@@ -794,6 +883,7 @@
 		<td>21 - 24 northampton road</td>
 	</tr>
 	<tr>
+        <td><cml:checkbox name="75" /></td>
 		<td>centre</td>
 		<td>the cambridge chop house</td>
 		<td>expensive</td>
@@ -803,6 +893,7 @@
 		<td>1 kings parade</td>
 	</tr>
 	<tr>
+        <td><cml:checkbox name="76" /></td>
 		<td>north</td>
 		<td>royal spice</td>
 		<td>cheap</td>
@@ -812,6 +903,7 @@
 		<td>victoria avenue chesterton</td>
 	</tr>
 	<tr>
+        <td><cml:checkbox name="77" /></td>
 		<td>west</td>
 		<td>saint johns chop house</td>
 		<td>moderate</td>
@@ -821,6 +913,7 @@
 		<td>21 - 24 northampton street</td>
 	</tr>
 	<tr>
+        <td><cml:checkbox name="78" /></td>
 		<td>east</td>
 		<td>rajmahal</td>
 		<td>moderate</td>
@@ -830,6 +923,7 @@
 		<td>7 barnwell road fen ditton</td>
 	</tr>
 	<tr>
+        <td><cml:checkbox name="79" /></td>
 		<td>centre</td>
 		<td>shiraz restaurant</td>
 		<td>expensive</td>
@@ -839,6 +933,7 @@
 		<td>84 regent street city centre</td>
 	</tr>
 	<tr>
+        <td><cml:checkbox name="80" /></td>
 		<td>centre</td>
 		<td>darrys cookhouse and wine shop</td>
 		<td>expensive</td>
@@ -848,6 +943,7 @@
 		<td>40270 king street city centre</td>
 	</tr>
 	<tr>
+        <td><cml:checkbox name="81" /></td>
 		<td>centre</td>
 		<td>stazione restaurant and coffee bar</td>
 		<td>expensive</td>
@@ -857,6 +953,7 @@
 		<td>market hill city centre</td>
 	</tr>
 	<tr>
+        <td><cml:checkbox name="82" /></td>
 		<td>centre</td>
 		<td>the gandhi</td>
 		<td>cheap</td>
@@ -866,6 +963,7 @@
 		<td>72 regent street city centre</td>
 	</tr>
 	<tr>
+        <td><cml:checkbox name="83" /></td>
 		<td>centre</td>
 		<td>little seoul</td>
 		<td>expensive</td>
@@ -875,6 +973,7 @@
 		<td>108 regent street city centre</td>
 	</tr>
 	<tr>
+        <td><cml:checkbox name="84" /></td>
 		<td>south</td>
 		<td>pizza hut cherry hinton</td>
 		<td>moderate</td>
@@ -884,6 +983,7 @@
 		<td>g4 cambridge leisure park clifton way cherry hinton</td>
 	</tr>
 	<tr>
+        <td><cml:checkbox name="85" /></td>
 		<td>centre</td>
 		<td>hotel du vin and bistro</td>
 		<td>moderate</td>
@@ -893,6 +993,7 @@
 		<td>15 - 19 trumpington street</td>
 	</tr>
 	<tr>
+        <td><cml:checkbox name="86" /></td>
 		<td>north</td>
 		<td>restaurant two two</td>
 		<td>expensive</td>
@@ -902,6 +1003,7 @@
 		<td>22 chesterton road chesterton</td>
 	</tr>
 	<tr>
+        <td><cml:checkbox name="87" /></td>
 		<td>south</td>
 		<td>nandos</td>
 		<td>cheap</td>
@@ -911,6 +1013,7 @@
 		<td>cambridge leisure park clifton way</td>
 	</tr>
 	<tr>
+        <td><cml:checkbox name="88" /></td>
 		<td>centre</td>
 		<td>the copper kettle</td>
 		<td>moderate</td>
@@ -920,6 +1023,7 @@
 		<td>4 kings parade city centre</td>
 	</tr>
 	<tr>
+        <td><cml:checkbox name="89" /></td>
 		<td>centre</td>
 		<td>lan hong house</td>
 		<td>moderate</td>
@@ -929,6 +1033,7 @@
 		<td>12 norfolk street city centre</td>
 	</tr>
 	<tr>
+        <td><cml:checkbox name="90" /></td>
 		<td>west</td>
 		<td>graffiti</td>
 		<td>expensive</td>
@@ -938,6 +1043,7 @@
 		<td>hotel felix whitehouse lane huntingdon road</td>
 	</tr>
 	<tr>
+        <td><cml:checkbox name="91" /></td>
 		<td>west</td>
 		<td>rice boat</td>
 		<td>expensive</td>
@@ -947,6 +1053,7 @@
 		<td>37 newnham road newnham</td>
 	</tr>
 	<tr>
+        <td><cml:checkbox name="92" /></td>
 		<td>centre</td>
 		<td>caffe uno</td>
 		<td>expensive</td>
@@ -956,6 +1063,7 @@
 		<td>32 bridge street city centre</td>
 	</tr>
 	<tr>
+        <td><cml:checkbox name="93" /></td>
 		<td>centre</td>
 		<td>the oak bistro</td>
 		<td>moderate</td>
@@ -965,6 +1073,7 @@
 		<td>6 lensfield road</td>
 	</tr>
 	<tr>
+        <td><cml:checkbox name="94" /></td>
 		<td>centre</td>
 		<td>midsummer house restaurant</td>
 		<td>expensive</td>
@@ -974,6 +1083,7 @@
 		<td>midsummer common</td>
 	</tr>
 	<tr>
+        <td><cml:checkbox name="95" /></td>
 		<td>centre</td>
 		<td>de luca cucina and bar</td>
 		<td>moderate</td>
@@ -983,6 +1093,7 @@
 		<td>83 regent street</td>
 	</tr>
 	<tr>
+        <td><cml:checkbox name="96" /></td>
 		<td>north</td>
 		<td>golden wok</td>
 		<td>moderate</td>
@@ -992,6 +1103,7 @@
 		<td>191 histon road chesterton</td>
 	</tr>
 	<tr>
+        <td><cml:checkbox name="97" /></td>
 		<td>centre</td>
 		<td>ugly duckling</td>
 		<td>expensive</td>
@@ -1001,6 +1113,7 @@
 		<td>12 st johns street city centre</td>
 	</tr>
 	<tr>
+        <td><cml:checkbox name="98" /></td>
 		<td>not available</td>
 		<td>curry queen</td>
 		<td>expensive</td>
@@ -1010,6 +1123,7 @@
 		<td>106 mill road city centre</td>
 	</tr>
 	<tr>
+        <td><cml:checkbox name="99" /></td>
 		<td>centre</td>
 		<td>galleria</td>
 		<td>moderate</td>
@@ -1019,6 +1133,7 @@
 		<td>33 bridge street</td>
 	</tr>
 	<tr>
+        <td><cml:checkbox name="100" /></td>
 		<td>centre</td>
 		<td>the slug and lettuce</td>
 		<td>expensive</td>
@@ -1028,6 +1143,7 @@
 		<td>34 - 35 green street</td>
 	</tr>
 	<tr>
+        <td><cml:checkbox name="101" /></td>
 		<td>north</td>
 		<td>city stop restaurant</td>
 		<td>expensive</td>
@@ -1037,6 +1153,7 @@
 		<td>cambridge city football club milton road chesterton</td>
 	</tr>
 	<tr>
+        <td><cml:checkbox name="102" /></td>
 		<td>centre</td>
 		<td>la raza</td>
 		<td>cheap</td>
@@ -1046,6 +1163,7 @@
 		<td>4 - 6 rose crescent</td>
 	</tr>
 	<tr>
+        <td><cml:checkbox name="103" /></td>
 		<td>centre</td>
 		<td>the cow pizza kitchen and bar</td>
 		<td>moderate</td>
@@ -1055,6 +1173,7 @@
 		<td>corn exchange street</td>
 	</tr>
 	<tr>
+        <td><cml:checkbox name="104" /></td>
 		<td>west</td>
 		<td>cocum</td>
 		<td>expensive</td>
@@ -1064,6 +1183,7 @@
 		<td>71 castle street city centre</td>
 	</tr>
 	<tr>
+        <td><cml:checkbox name="105" /></td>
 		<td>centre</td>
 		<td>UnknownOndraInserted</td>
 		<td>cheap</td>
@@ -1073,6 +1193,7 @@
 		<td>33-34 saint andrews street</td>
 	</tr>
 	<tr>
+        <td><cml:checkbox name="106" /></td>
 		<td>centre</td>
 		<td>mahal of cambridge</td>
 		<td>cheap</td>
@@ -1082,6 +1203,7 @@
 		<td>3 - 5 millers yard mill lane</td>
 	</tr>
 	<tr>
+        <td><cml:checkbox name="107" /></td>
 		<td>east</td>
 		<td>royal standard</td>
 		<td>expensive</td>
@@ -1091,6 +1213,7 @@
 		<td>290 mill road city centre</td>
 	</tr>
 	<tr>
+        <td><cml:checkbox name="108" /></td>
 		<td>north</td>
 		<td>meghna</td>
 		<td>moderate</td>
@@ -1105,8 +1228,8 @@
 <hr>
 <cml:group> 
   <cml:hidden name="validation_log" />
-  <cml:textarea label="Client (your) reply:" name="client_reply" instructions="Converse naturally and ask for information about restaurants based on the provided goals." class="usronly dummyrequired" validates="required ss-required yext_no_international_url"></cml:textarea>
-  <cml:textarea label="Operator (your) reply:" name="system_reply" instructions="Please, read and understand the dialogue history, and based on it continue in conversation! Respond naturally." class="sysonly dummyrequired" validates="required ss-required yext_no_international_url"></cml:textarea>
+  <cml:textarea label="Client (your) reply:" name="client_reply" instructions="Converse naturally and ask for information about restaurants based on the provided goals." class="usronly user dummyrequired" validates="required ss-required yext_no_international_url"></cml:textarea>
+  <cml:textarea label="Operator (your) reply:" name="system_reply" instructions="Please, read and understand the dialogue history, and based on it continue in conversation! Respond naturally." class="sysonly sys dummyrequired" validates="required ss-required yext_no_international_url"></cml:textarea>
   <cml:checkbox name="finished" label="Conversation finished" instructions="Check if you the feel that the other interlocutor wants to end the conversation." />
   <cml:checkbox name="goals_satisfied" class="usronly" label="All goals satisfied" instructions="Check if all information requested to find out in this task was alread answered" />
   <cml:checkbox name="error_found" label="Conversation does not make sense" instructions="Mark if some utterance in history does not make sense. Still provide your own reply so the conversation can continue." />

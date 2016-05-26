@@ -207,11 +207,9 @@ require(['jquery-noconflict'], function($) {
       if (data.role == 'sys') {
         cf_row_main_element.find('.usronly').hide();
         cf_row_main_element.find('.usronly.dummyrequired').text('dummy');
-        cf_row_main_element.find('.rolefull').text('hotline operator');
       } else if(data.role == 'usr') {
         cf_row_main_element.find('.sysonly').hide();
         cf_row_main_element.find('.sysonly.dummyrequired').text('dummy');
-        cf_row_main_element.find('.rolefull').text('client');
       } 
 
       cf_row_main_element.find('.checkempty').each(function() {

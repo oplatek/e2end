@@ -96,6 +96,7 @@ class Dialog:
 
         requestable = requestable or ['phone', 'pricerange', 'addr', 'area', 'food', 'postcode', 'name']
         search_by = search_by or ['pricerange', 'area', 'food', 'name']
+        slot_map = {'phone': 'phone', 'pricerange': 'price_range', 'addr': 'address', 'area': 'area', 'food': 'food_type', 'postcode': 'postcode', 'name': 'name'}
 
         dialogs = []
         for k in range(num):
@@ -111,6 +112,7 @@ class Dialog:
             for i, g in enumerate(goals):
                 d['goal{}'.format(i)] = [g]
             for i, (k, v) in enumerate(constrains.items()):
+                k = slot_map(k)
                 d['cons{}'.format(i)] = ['%s=%s' % (k, v)]
             d['role'] = 'sys'
             dialogs.append(Dialog(d))

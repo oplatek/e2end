@@ -48,6 +48,10 @@ class Dstc2DB:
         return self.col_vocabs[idx]
 
     @property
+    def num_rows(self):
+        return self.table.shape[0]
+
+    @property
     def table(self):
         return self._table
 
@@ -125,6 +129,7 @@ class Dstc2:
         self._turn_targets = ttarg = words_vocab.get_i(EOS) * np.ones((len(dialogs), mdl, mtarl), dtype=np.int64)
         self._turn_target_lens = np.zeros((len(dialogs), mdl), dtype=np.int64)
         self._word_speakers = w_spk = np.zeros((len(dialogs), mdl, mtl), dtype=np.int64)
+        self._rewards = np.zeros(len(dialogs), mdl, db.num_rows)
 
         tmp1, tmp2 = db.column_names + ['words'], db.col_vocabs + [words_vocab]
         self.target_vocabs = OrderedDict(zip(tmp1, tmp2))
@@ -142,7 +147,8 @@ class Dstc2:
             logger.debug('Shifting targets and turns by one. First context is empty turn')
             d, spkss, entss = [[hello_token]] + d, [[usr]] + spkss, [db.extract_entities([hello_token])] + entss
             for j, (turn, spks, ents, targets) in enumerate(zip(d, spkss, entss, dtargss)):
-                sys_word_ids = self._extract_vocab_ids(targets)
+                sys_word_ids, vocab_names = self._extract_vocab_ids(targets)
+
                 if j > mdl or len(turn) > mtl or len(sys_word_ids) > mtarl:
                     logger.debug("Keep prefix of turns, discard following turns because:"
                         "a) num_turns too big "
@@ -160,6 +166,7 @@ class Dstc2:
                         self._word_ent[i, j, l, k] = e[k]
 
                 self._turn_target_lens[i, j] = len(sys_word_ids)
+                self._rewards[i, j, :] = self._rows_rewards(sys_word_ids, vocab_names, db)
                 for k, w_id in enumerate(sys_word_ids):
                     ttarg[i, j, k] = w_id
             if dial_len > 0:
@@ -170,11 +177,17 @@ class Dstc2:
         self._dial_lens = np.array(dial_lens)
         logger.info('\nLoaded dataset len(%s): %d', filename, len(self))
 
+    def _rows_rewards(self, word_ids, vocab_names, db):
+        for n, wid in zip(word_ids, vocab_names):
+        #     if
+        # self.word_vocabs_downlimit
+        # pass
+
     def _extract_vocab_ids(self, target_words):
         '''Heuristic how to recognize named entities from DB in sentence and
         insert user their ids instead "regular words".'''
         skip_words_of_entity = 0
-        target_ids = []
+        target_ids, vocab_names = [], []
         for i, w in enumerate(target_words):
             if skip_words_of_entity > 0:
                 skip_words_of_entity -= 1
@@ -190,6 +203,7 @@ class Dstc2:
                         skip_words_of_entity = len(e) - 1
                         w_id = self.get_target_surface_id(vocab_name, vocab, ent)
                         target_ids.append(w_id)
+                        vocab_names.append(vocab_name)
                         w_found = True
                         break
                 if w_found:
@@ -197,7 +211,9 @@ class Dstc2:
             if not w_found:
                 logger.debug('Target word "%s" treated as regular word', w)
                 target_ids.append(self.get_target_surface_id('words', self._vocab, w))
-        return target_ids
+                vocab_names.append('words')
+        assert len(vocab_names) == len(target_ids)
+        return target_ids, vocab_names
 
     def get_target_surface_id(self, vocab_name, vocab, w):
         return self.word_vocabs_downlimit[vocab_name] + vocab.get_i(w)

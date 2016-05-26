@@ -3,6 +3,12 @@ End-to-End Neural Dialog
 
 Todo
 ----
+popis tasku z DSTC2
+zapnout ondruv spellchecker
+zmenit cil dynamicky aby nerikali goaly vsechny najednou
+pouzit softmax misto sigmoidy
+trenovat binarni klasifikatory pro vyber radku
+
 - enforce decoder embeddings to be the same to DB and WORD embeddings (or make them close together - too complicated rather the same)
     - model:410 - TODO TEST
 - reward function based on the dialog state
@@ -82,3 +88,5 @@ DONE
     - ask about feed previous ODuska? Jindry? Filipa? - but first read http://arxiv.org/abs/1506.03099 [DONE] Fixed stupid bug
 - initialize targets with EOS so it predicts always EOS after first one [DONE]
 - bleu from nltk copy  [DONE]
+- CF job-
+    - clicknout on row DONE
