@@ -68,7 +68,7 @@ def git_info():
 
 
 def setup_logging(filename, console_level=logging.INFO):
-    logging.basicConfig(level=logging.DEBUG, filename=filename)
+    logging.basicConfig(format='%(asctime)s:%(levelname)s: %(message)s', level=logging.DEBUG, filename=filename)
     if isinstance(console_level, str):
         console_level = logging.getLevelName(console_level)
     console = logging.StreamHandler()
