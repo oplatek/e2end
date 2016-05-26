@@ -95,22 +95,23 @@ require(['jquery-noconflict'], function($) {
       return false;
     }
 
-    // find the corresponding hidden field
-    var fluencyField = $(element).closest('.html-element-wrapper').find('.fluency_assessment')[0];
-    if (fluencyField.value){  // language ID validation already performed
-      var fluencyData = JSON.parse(fluencyField.value);
-
-      if (fluencyData.result == 'yes'){
-        return true;  // once the validation passes, always return true
-      }
-      if (fluencyData.text == value){
-        return false; // never run twice for the same text
-      }
-    }
-
     return true;
     // FIXME
     // // run the external validation, return its result
+    
+    // // find the corresponding hidden field
+    // var fluencyField = $(element).closest('.html-element-wrapper').find('.fluency_assessment')[0];
+    // if (fluencyField.value){  // language ID validation already performed
+    //   var fluencyData = JSON.parse(fluencyField.value);
+    //
+    //   if (fluencyData.result == 'yes'){
+    //     return true;  // once the validation passes, always return true
+    //   }
+    //   if (fluencyData.text == value){
+    //     return false; // never run twice for the same text
+    //   }
+    // }
+
     // var fluencyData = requestExternalValidation(value, data.values);
     // fluencyField.value = JSON.stringify(fluencyData);
     // return fluencyData.result == 'yes';
@@ -203,6 +204,9 @@ require(['jquery-noconflict'], function($) {
   function hide_non_initialized(cf_row_main_element) {
     var data = getDataItemsFor(cf_row_main_element);
 
+    if (cf_row_main_element.find('firstconst').text() == 'No data available') {
+        cf_row_main_element.find('constnonempty').hide();
+    }
         
       if (data.role == 'sys') {
         cf_row_main_element.find('.usronly').hide();

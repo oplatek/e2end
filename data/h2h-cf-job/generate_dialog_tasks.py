@@ -110,10 +110,10 @@ class Dialog:
             constrains = dict([(c, random.sample(list(col_vocabs[c].words), 1)[0]) for c in constrains])
             # print('constraings', constrains)
             for i, g in enumerate(goals):
-                d['goal{}'.format(i)] = [g]
+                d['goal{},'.format(i)] = [slot_map[g]]
             for i, (k, v) in enumerate(constrains.items()):
-                k = slot_map(k)
-                d['cons{}'.format(i)] = ['%s=%s' % (k, v)]
+                k = slot_map[k]
+                d['cons{},'.format(i)] = ['%s=%s' % (k, v)]
             d['role'] = 'sys'
             dialogs.append(Dialog(d))
         if dialogs:
