@@ -1,5 +1,6 @@
 from nltk.translate.bleu_score import corpus_bleu, SmoothingFunction, sentence_bleu
 import tensorflow as tf
+import numpy as np
 
 
 bleu_smoothing = SmoothingFunction(epsilon=0.01).method1
@@ -41,6 +42,15 @@ def tf_trg_word2vocab_id(wt_arr, vocabs_cum_start_idx_low, vocabs_cum_start_idx_
         return res
 
 
+def row_acc_cov(np_pred, np_gold):
+    eqv = len(np.intersect1d(np_pred, np_gold))
+    pred_num = len(np_pred)
+    gold_num = len(np_gold)
+    acc = eqv / pred_num if pred_num > 0 else 1.0
+    cov = eqv / gold_num if gold_num > 0 else 1.0
+    return acc, cov
+
+
 def rouge2(decoded, references):
     pass
 
@@ -49,14 +59,6 @@ def split_facts_syntax(vocab_ids, words_vocab_id):
     db_entities = [vocab_id for vocab_id in vocab_ids if vocab_id != words_vocab_id]
     words = [vocab_id for vocab_id in vocab_ids if vocab_id != words_vocab_id]
     return db_entities, words
-
-
-def score_entities(decoded, references, db, config):
-    pass
-
-
-def score_words(decoded, references, config):
-    pass
 
 
 def bleu_4(decoded, references):

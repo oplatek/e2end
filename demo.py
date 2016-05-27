@@ -154,7 +154,7 @@ if __name__ == "__main__":
     ap.add_argument('--decoder_layers', default=1)
     ap.add_argument('--sample_unk', default=0)
     ap.add_argument('--encoder_size', default=20)
-    ap.add_argument('--fast_comp', action='store_true', default=False)
+    ap.add_argument('--model', default='E2E_property_decoding')
     ap.add_argument('--initial_state_attention', action='store_false', default=True, help='Used for resuming decoding from previous round, kind of what we are doing here')
     ap.add_argument('--train_first_n', type=int, default=None)
     ap.add_argument('--dev_first_n', type=int, default=None)
@@ -204,8 +204,9 @@ if __name__ == "__main__":
     c.max_target_len = train.max_target_len
     c.column_names = db.column_names
     c.num_words = len(train.words_vocab)
-    c.num_rows = db.table.shape[0]
-    c.num_cols = db.table.shape[1]
+    c.num_rows = db.num_rows
+    c.num_cols = db.num_cols
+    c.restaurant_name_vocab_id = db.col_names_vocab.get_id('name')
     c.git_info = git_info()
     logger.info('Config\n\n: %s\n\n', c)
     logger.info('Saving helper files')
@@ -213,10 +214,14 @@ if __name__ == "__main__":
     for vocab, name in zip(db.col_vocabs, db.column_names):
         vocab.save(c.col_vocab_prefix + name)
 
-    if c.fast_comp:
-        m = e2end.model.FastComp(c)
-    else:
+    if c.model == "E2E_property_decoding":
         m = e2end.model.E2E_property_decoding(c)
+    elif c.model == "FastComp":
+        m = e2end.model.FastComp(c)
+    elif c.model == "RowPredictions":
+        m = e2end.model.RowPredictions
+    else:
+        raise KeyError('Unknown model')
 
     c.model_name = m.__class__.__name__
     save_config(c, c.config_filename)

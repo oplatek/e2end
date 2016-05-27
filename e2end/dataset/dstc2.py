@@ -43,6 +43,16 @@ class Dstc2DB:
     def col_vocabs(self):
         return self._col_vocabs
 
+    def matching_rows(self, col_val_dict):
+        return self.table[self._row_mask(col_val_dict)]
+
+    def _row_mask(self, col_val_dict):
+        # See http://stackoverflow.com/questions/1962980/selecting-rows-from-a-numpy-ndarray
+        return np.logical_or.reduce([self.table[:,c] == v for c, v in col_val_dict.items()])
+
+    def matching_rows_mask(self, col_val_dict):
+        return self._row_mask(col_val_dict)
+
     def get_col_vocab(self, col_name):
         idx = self.column_names.index(col_name)
         return self.col_vocabs[idx]
@@ -50,6 +60,10 @@ class Dstc2DB:
     @property
     def num_rows(self):
         return self.table.shape[0]
+
+    @property
+    def num_cols(self):
+        return self.table.shape[1]
 
     @property
     def table(self):
@@ -72,6 +86,7 @@ class Dstc2DB:
         return [mask_ent(sentence, vocab) for vocab in self.col_vocabs]
 
 
+# FIXME implement caching, saving and loading
 class Dstc2:
     '''
     Produces input, output labels for each turn.
@@ -85,6 +100,8 @@ class Dstc2:
             max_turn_len=None, max_dial_len=None, max_target_len=None,
             first_n=None, words_vocab=None, labels_vocab=None, sample_unk=0):
 
+
+        self.restaurant_name_vocab_id = db.col_names_vocab.get_id('name')
         logger.info('\nLoading dataset %s', filename)
         self.hello_token = hello_token = 'Hello'  # Default user history for first turn
         self.EOS = EOS = 'EOS'   # Symbol which the decoder should produce as last one'
@@ -129,7 +146,7 @@ class Dstc2:
         self._turn_targets = ttarg = words_vocab.get_i(EOS) * np.ones((len(dialogs), mdl, mtarl), dtype=np.int64)
         self._turn_target_lens = np.zeros((len(dialogs), mdl), dtype=np.int64)
         self._word_speakers = w_spk = np.zeros((len(dialogs), mdl, mtl), dtype=np.int64)
-        self._rewards = np.zeros(len(dialogs), mdl, db.num_rows)
+        self._match_rows_props = np.zeros((len(dialogs), mdl, db.num_rows), dtype=np.int64)
 
         tmp1, tmp2 = db.column_names + ['words'], db.col_vocabs + [words_vocab]
         self.target_vocabs = OrderedDict(zip(tmp1, tmp2))
@@ -166,7 +183,7 @@ class Dstc2:
                         self._word_ent[i, j, l, k] = e[k]
 
                 self._turn_target_lens[i, j] = len(sys_word_ids)
-                self._rewards[i, j, :] = self._rows_rewards(sys_word_ids, vocab_names, db)
+                self._match_rows_props[i, j, :] = self._row_all_prop_match(sys_word_ids, vocab_names, db)
                 for k, w_id in enumerate(sys_word_ids):
                     ttarg[i, j, k] = w_id
             if dial_len > 0:
@@ -177,11 +194,48 @@ class Dstc2:
         self._dial_lens = np.array(dial_lens)
         logger.info('\nLoaded dataset len(%s): %d', filename, len(self))
 
-    def _rows_rewards(self, word_ids, vocab_names, db):
-        for n, wid in zip(word_ids, vocab_names):
-        #     if
-        # self.word_vocabs_downlimit
-        # pass
+    # FIXME use it
+    def _row_mention_match(self, word_ids, vocab_names, db):
+        '''If a system response - word_ids contains an restaurant name, we know exact row which to output,
+        but we can also output any row with the same properties which were mentioned.
+
+        Args
+            word_ids:
+            vocab_names:
+            db:
+
+        Returns: numpy array representing mask of matching rows.'''
+        if 'name' not in vocab_names:
+            return np.zeros(db.num_rows)
+        else:
+            const = dict([(db.col_names_vocab.get_i(vn), wid - self.word_vocabs_downlimit[vn]) for wid, vn in zip(word_ids, vocab_names) if vn in ['area', 'food', 'pricerange']])
+            return db.matching_rows_mask(const)
+
+    def _row_all_prop_match(self, word_ids, vocab_names, db):
+        '''If a system response - word_ids contains an restaurant name, we know exact row which to output,
+        but we can also output any row with the same properties.
+
+        Args
+            word_ids:
+            vocab_names:
+            db:
+
+        Returns: numpy array representing mask of matching rows.'''
+        if 'name' not in vocab_names:
+            return np.zeros(db.num_rows)
+        else:
+            name_idx = vocab_names.index('name')
+            restaurant_idx = word_ids[name_idx] - self.word_vocabs_downlimit['name']
+            name_vocab_id = self.restaurant_name_vocab_id  # id for name
+            restaurant_row = db.matching_rows({name_vocab_id: restaurant_idx})
+            assert len(restaurant_row) == 1, str(restaurant_row)
+            restaurant_row = restaurant_row[0]
+            col_idx = [db.col_names_vocab.get_i(vn) for vn in ['area', 'food', 'pricerange']]
+            filter_col_val = dict([(c, restaurant_row[c]) for c in col_idx])
+            rows_mask = db.matching_rows_mask(filter_col_val)
+            assert len(rows_mask) > 0, str(filter_col_val)
+            return rows_mask
+
 
     def _extract_vocab_ids(self, target_words):
         '''Heuristic how to recognize named entities from DB in sentence and
@@ -288,20 +342,12 @@ class Dstc2:
     def turn_target_lens(self):
         return self._turn_target_lens
 
+    @property
+    def match_row_property(self):
+        return self._match_rows_props
+
     def shuffle(self):
-        rng_state = np.random.get_state()
-        np.random.shuffle(self._dialogs)
-        np.random.set_state(rng_state)
-        np.random.shuffle(self._word_speakers)
-        np.random.set_state(rng_state)
-        np.random.shuffle(self._word_ent)
-        np.random.set_state(rng_state)
-        np.random.shuffle(self._turn_lens)
-        np.random.set_state(rng_state)
-        np.random.shuffle(self._att_mask)
-        np.random.set_state(rng_state)
-        np.random.shuffle(self._turn_targets)
-        np.random.set_state(rng_state)
-        np.random.shuffle(self._turn_target_lens)
-        np.random.set_state(rng_state)
-        np.random.shuffle(self.dial_lens)
+        raise NotImplementedError('I do not use it currently, I better raise the exception than update the list every time')
+        # rng_state = np.random.get_state()
+        # np.random.shuffle(self._dialogs)
+        # np.random.set_state(rng_state)

@@ -6,14 +6,19 @@ import logging, math
 from tensorflow.python.ops import control_flow_ops
 from ..utils import elapsed_timer, sigmoid, time2batch, trim_decoded
 from .decoder import embedding_attention_decoder, word_db_embed_attention_decoder
-from .evaluation import tf_trg_word2vocab_id, tf_lengths2mask2d, get_bleus
+from .evaluation import tf_trg_word2vocab_id, tf_lengths2mask2d, get_bleus, row_acc_cov
 from tensorflow.python.training.moving_averages import assign_moving_average
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 
+__all__ = ['fast_compilation.FastComp', 'row_model.RowPredictions']
+
 
 class E2E_property_decoding():
+
+    class LastDecodedValues:
+        pass
 
     def _define_inputs(self, c):
         self.db_row_initializer = tf.placeholder(tf.int64, shape=(c.num_rows, c.num_cols), name='row_initializer')
@@ -237,6 +242,40 @@ class E2E_property_decoding():
                                                         lambda: decoder(False))
         return targets, target_mask, dec_logitss
 
+    def _build_reward_func(self, c, dec_logitss, targets):
+        logger.debug('Compliling helper functions which identifies properties type {word, col1, col2,..} of decoded and target words')
+        self.dec_vocab_idss_op = tf_trg_word2vocab_id(self.dec_outputs, self.vocabs_cum_start_idx_low, self.vocabs_cum_start_idx_up)
+        self.trg_vocab_idss_op = tf_trg_word2vocab_id(targets, self.vocabs_cum_start_idx_low, self.vocabs_cum_start_idx_up)
+
+        def bleu_all():
+            '''computed from values stored at model dictionary after eval step'''
+            return np.mean(get_bleus(self.trg_utts, self.dec_utts))
+
+        def bleu_words():
+            '''computed from values stored at model dictionary after eval step'''
+            # words have ids == c.num_cols
+            just_wordss_dec = [[w for w, i in zip(utt, ids) if i == c.num_cols] for utt, ids in zip(self.dec_utts, self.dec_vocab_idss)]
+            just_wordss_trg = [[w for w, i in zip(utt, ids) if i == c.num_cols] for utt, ids in zip(self.trg_utts, self.trg_vocab_idss)]
+            return np.mean(get_bleus(just_wordss_trg, just_wordss_dec))
+
+        def properties_match():
+            '''computed from values stored at model dictionary after eval step'''
+            # words are stored as last_column see dstc2.target_vocabs
+            utts_rewards = [np.mean([1 if dec_vid == trg_vid else 0 for dec_vid, trg_vid in zip(dec_vocab_ids, trg_vocab_ids)])
+                            for dec_vocab_ids, trg_vocab_ids in zip(self.dec_vocab_idss, self.trg_vocab_idss)]
+            return np.mean(utts_rewards)
+
+        def row_match():
+            '''Check if we output an restaurant name that it is compatible with the supervised answer'''
+            rows_with_names_b = [[wid - c.name_low for wid in vocab_ids if c.name_low <= wid < c.name_up]
+                                 for vocab_ids in self.dec_vocab_idss]
+            return np.mean([row_acc_cov(row_dec, row_gold) for row_dec, row_gold in zip(rows_with_names_b, self.gold_rowss)])
+
+        eval_functions = [bleu_all, bleu_words, properties_match]
+        assert len(self.eval_functions) == len(c.eval_func_weights), str(len(self.eval_functions) == len(c.eval_func_weights))
+        loss = tf.nn.seq2seq.sequence_loss(dec_logitss, targets[1:], self.target_mask, softmax_loss_function=None)
+        return loss, eval_functions
+
     def __init__(self, config):
         self.config = c = config  # shortcut as it is used heavily
         logger.info('Compiling %s', self.__class__.__name__)
@@ -260,39 +299,13 @@ class E2E_property_decoding():
                 logger.info('\nUsing plain encoder decoder\n')
 
         with tf.variable_scope('decoder'), elapsed_timer() as dec_timer:
-            targets, target_mask, dec_logitss = self._build_decoder(c, encoded_state, att_hidd_feat_list, col_embeddings, words_embeddings)
+            targets, self.target_mask, dec_logitss = self._build_decoder(c, encoded_state, att_hidd_feat_list, col_embeddings, words_embeddings)
             self.dec_outputs = [tf.arg_max(dec_logits, 1) for dec_logits in dec_logitss]
             logger.debug('Building of the decoder took %.2f s.', dec_timer())
 
         with tf.variable_scope('loss_and_eval'), elapsed_timer() as loss_timer:
-            self.loss = tf.nn.seq2seq.sequence_loss(dec_logitss, targets[1:], target_mask, softmax_loss_function=None)
-
-            logger.debug('Compliling helper functions which identifies properties type {word, col1, col2,..} of decoded and target words')
-            self.dec_vocab_idss_op = tf_trg_word2vocab_id(self.dec_outputs, self.vocabs_cum_start_idx_low, self.vocabs_cum_start_idx_up)
-            self.trg_vocab_idss_op = tf_trg_word2vocab_id(targets, self.vocabs_cum_start_idx_low, self.vocabs_cum_start_idx_up)
-
-            def bleu_all():
-                '''computed from values stored at model dictionary after eval step'''
-                return np.mean(get_bleus(self.trg_utts, self.dec_utts))
-
-            def bleu_words():
-                '''computed from values stored at model dictionary after eval step'''
-                # words have ids == c.num_cols
-                just_wordss_dec = [[w for w, i in zip(utt, ids) if i == c.num_cols] for utt, ids in zip(self.dec_utts, self.dec_vocab_idss)]
-                just_wordss_trg = [[w for w, i in zip(utt, ids) if i == c.num_cols] for utt, ids in zip(self.trg_utts, self.trg_vocab_idss)]
-                return np.mean(get_bleus(just_wordss_trg, just_wordss_dec))
-
-            def properties_match():
-                '''computed from values stored at model dictionary after eval step'''
-                # words are stored as last_column see dstc2.target_vocabs
-                utts_rewards = [np.mean([1 if dec_vid == trg_vid else 0 for dec_vid, trg_vid in zip(dec_vocab_ids, trg_vocab_ids)])
-                        for dec_vocab_ids, trg_vocab_ids in zip(self.dec_vocab_idss, self.trg_vocab_idss)]
-                return np.mean(utts_rewards)
-
-            self.eval_functions = [bleu_all, bleu_words, properties_match]
-            assert len(self.eval_functions) == len(c.eval_func_weights), str(len(self.eval_functions) == len(c.evla_func_weights))
-
-            logger.debug('Building the loss function ops took %.2f s', loss_timer())
+            self.loss, self.eval_func = self._build_reward_func(c, dec_logitss, targets)
+            logger.debug('Building the loss/reward functions ops took %.2f s', loss_timer())
 
         with tf.variable_scope('updates'), elapsed_timer() as updates_timer:
             # TODO load reward and implement mixer
@@ -349,19 +362,17 @@ class E2E_property_decoding():
 
     def eval_step(self, sess, eval_dict, log_output=False):
         c = self.config
+        output_feed = self.dec_outputs + self.dec_vocab_idss_op + self.trg_vocab_idss_op + [self.loss, self.target_mask]
         if log_output:
-            output_feed = self.dec_outputs + self.dec_vocab_idss_op + self.trg_vocab_idss_op + [self.loss, self.summarize]
-        else:
-            output_feed = self.dec_outputs + self.dec_vocab_idss_op + self.trg_vocab_idss_op + [self.loss]
+            output_feed.extend([self.summarize])
 
         out_vals = sess.run(output_feed, eval_dict)
         mtl = c.max_turn_len
+        decoder_outs, dec_v_ids, trg_v_ids = out_vals[0:mtl], out_vals[mtl:2 * mtl], out_vals[2 * mtl: 3 * mtl]
         if log_output:
-            loss_v, sum_v = out_vals[-2], out_vals[-1]
-            decoder_outs, dec_v_ids, trg_v_ids = out_vals[0:mtl], out_vals[mtl:2 * mtl], out_vals[2 * mtl: 3 * mtl]
+            loss_v, target_mask_v, sum_v = out_vals[-3:]
         else:
-            loss_v = out_vals[-1]
-            decoder_outs, dec_v_ids, trg_v_ids = out_vals[0:mtl], out_vals[mtl:2 * mtl], out_vals[2 * mtl: 3 * mtl]
+            loss_v, target_mask_v = out_vals[-2:]
 
         l_ds = [trim_decoded(utt, c.EOS_ID) for utt in time2batch(decoder_outs)]
         utt_lens, self.dec_utts = zip(*l_ds)
@@ -370,24 +381,19 @@ class E2E_property_decoding():
         self.trg_vocab_idss = [ids[:k] for k, ids in zip(trg_lens, time2batch(trg_v_ids))]
         self.trg_utts = [utt[:k] for k, utt in zip(trg_lens, eval_dict['dec_targets:0'].tolist())]
 
-        eval_func_vals = [f() for f in self.eval_functions]
-        w_eval_func_vals = [w * v for w, v in zip(c.eval_func_weights, eval_func_vals)]
+        w_eval_func_vals = [w * f() if w != 0 else 0 for w, f in zip(c.eval_func_weights, self.eval_functions)]
         reward = sum(w_eval_func_vals)
 
         ret_dir = {'loss': loss_v, 'reward': reward}
         if log_output:
             func_names=[f.__name__ for f in self.eval_functions]
-            eval_f_vals_dict = dict(zip(func_names, eval_func_vals))
             w_eval_f_vals_dict = dict(zip(func_names, w_eval_func_vals))
 
             total_sum = tf.Summary(value=[tf.Summary.Value(tag='reward', simple_value=reward)])
-            sum_func_val = tf.Summary(value=[tf.Summary.Value(tag=n, simple_value=v) for n, v in eval_f_vals_dict.items()])
             sum_wfunc_val = tf.Summary(value=[tf.Summary.Value(tag=n, simple_value=v) for n, v in w_eval_f_vals_dict.items()])
-            total_sum.MergeFrom(sum_func_val)
             total_sum.MergeFrom(sum_wfunc_val)
             total_sum.MergeFromString(sum_v)
             ret_dir.update({'summarize': total_sum, 'decoder_outputs': decoder_outs})
-            ret_dir.update(eval_f_vals_dict)
             ret_dir.update(w_eval_f_vals_dict)
 
         return ret_dir 
@@ -420,39 +426,3 @@ class E2E_property_decoding():
                 btargets, blens = labels_dt['dec_targets:0'], labels_dt['target_lens:0']
                 for b, (targets, d) in enumerate(zip(btargets, blens)):
                     logger.info('trg %07d,%02d: %s', self.step, b, ' '.join([dstc2_set.get_target_surface(i)[1] for i in targets[0:d]]))
-
-
-class FastComp(E2E_property_decoding):
-    '''Dummy class just for debugging training loop - it compiles fast.'''
-    def __init__(self, config):
-        self._var2save = tf.Variable([1])
-        self.step, self.config = 0, config
-
-        self._define_inputs(config)
-        arr = [
-                  self.turn_len, self.dec_targets, self.target_lens,
-                  self.is_first_turn, self.feed_previous,
-                  self.dropout_keep_prob, self.dropout_db_keep_prob,
-              ] + self.feat_list
-        self.testTrainOp = tf.concat(0, [tf.to_float(tf.reshape(x, (-1, 1))) for x in arr])
-
-    def train_step(self, sess, train_dict, log_output=False):
-        self.step += 1
-        sess.run(self.testTrainOp, train_dict)
-        logger.debug('train_dict: %s', train_dict)
-        logger.debug('input_feed_dict_shape: %s', [(k, v.shape) if hasattr(v, 'shape') else (k, v) for k, v in train_dict.items()])
-
-        if log_output:
-            return {'reward': -666, 'summarize': tf.Summary(value=[tf.Summary.Value(tag='dummy_loss', simple_value=-666)])}
-        else:
-            return {}
-        return {}
-
-    def decode_step(self, sess, input_feed_dict):
-        logger.debug('input_feed_dict: %s', input_feed_dict)
-        return {'decoder_outputs': [[0]], 'loss': -777}
-
-    def eval_step(self, sess, labels_dict, log_output=False):
-        return {'decoder_outputs': [[1]], 'loss': -777,
-                'summarize': tf.Summary(value=[tf.Summary.Value(tag='dummy_loss', simple_value=-666)]),
-                'reward': -888}
