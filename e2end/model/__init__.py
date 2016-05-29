@@ -12,9 +12,6 @@ from tensorflow.python.training.moving_averages import assign_moving_average
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 
-__all__ = ['fast_compilation.FastComp', 'row_model.RowPredictions']
-
-
 class E2E_property_decoding():
 
     def _define_inputs(self):
@@ -46,7 +43,7 @@ class E2E_property_decoding():
 
         self.dec_targets = tf.placeholder(tf.int64, shape=(c.batch_size, c.max_target_len), name='dec_targets')
         self.target_lens = tf.placeholder(tf.int64, shape=(c.batch_size,), name='target_lens')
-        self.gold_rows = tf.placeholder(tf.int64, shape=(c.batch_size, c.max_valid_rows), name='gold_rows')
+        self.gold_rows = tf.placeholder(tf.int64, shape=(c.batch_size, c.max_row_len), name='gold_rows')
         self.gold_row_lens = tf.placeholder(tf.int64, shape=(c.batch_size,), name='gold_row_lens')
         self.gold_rowss = [tf.squeeze(r, [1]) for r in tf.split(1, c.max_row_len, self.gold_rows)]
         self.rowss_maskk = [tf.squeeze(m, [1]) for m in tf.split(1, c.max_row_len, tf_lengths2mask2d(self.gold_row_lens, c.max_row_len))]

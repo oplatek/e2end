@@ -31,13 +31,13 @@ class Dstc2DB:
 
     @property
     def col_names_vocab(self):
-        self._col_name_vocab
+        return self._col_name_vocab
 
     def get_col_idx(self, col_name):
-        return self.column_names_vocab.get_i(col_name)
+        return self._col_name_vocab.get_i(col_name)
 
     def get_col_name(self, idx):
-        return self.column_names_vocab.get_w(idx)
+        return self._col_name_vocab.get_w(idx)
 
     @property
     def col_vocabs(self):
@@ -48,7 +48,7 @@ class Dstc2DB:
 
     def _row_mask(self, col_val_dict):
         # See http://stackoverflow.com/questions/1962980/selecting-rows-from-a-numpy-ndarray
-        return np.logical_or.reduce([self.table[:,c] == v for c, v in col_val_dict.items()])
+        return np.logical_or.reduce([self.table[:, c] == v for c, v in col_val_dict.items()])
 
     def matching_rest_names(self, col_val_dict):
         match_rows = self.matching_rows(col_val_dict)
@@ -78,7 +78,7 @@ class Dstc2DB:
         def mask_ent(sentence, vocab):
             mask = [0] * len(sentence)
             for i, w in enumerate(sentence):
-                for ent in vocab.words():
+                for ent in vocab.words:
                     e = ent.strip().split()
                     if w == e[0] and sentence[i:i + len(e)] == e:
                         logger.debug('found an entity %s in %s', ent, sentence)
@@ -151,7 +151,7 @@ class Dstc2:
         self._turn_target_lens = np.zeros((len(dialogs), mdl), dtype=np.int64)
         self._word_speakers = w_spk = np.zeros((len(dialogs), mdl, mtl), dtype=np.int64)
         self._match_rows_props = np.zeros((len(dialogs), mdl, db.num_rows), dtype=np.int64)
-        self._match_row_lens = np.zeros((len(dialogs),), dtype=np.int64)
+        self._match_row_lens = np.zeros((len(dialogs), mdl), dtype=np.int64)
 
         tmp1, tmp2 = db.column_names + ['words'], db.col_vocabs + [words_vocab]
         self.target_vocabs = OrderedDict(zip(tmp1, tmp2))
@@ -248,7 +248,6 @@ class Dstc2:
             restaurants = db.matching_rest_names(filter_col_val)
             return restaurants
 
-
     def _extract_vocab_ids(self, target_words):
         '''Heuristic how to recognize named entities from DB in sentence and
         insert user their ids instead "regular words".'''
@@ -262,14 +261,21 @@ class Dstc2:
             for vocab_name, vocab in self.target_vocabs.items():
                 if vocab_name == 'words':
                     continue
-                for ent in vocab.words():
+                for ent in vocab.words:
                     e = ent.strip().split()
                     if w == e[0] and target_words[i:i + len(e)] == e:
                         logger.debug('found an entity "%s" from column %s in target_words %s', ent, vocab_name, target_words)
                         skip_words_of_entity = len(e) - 1
                         w_id = self.get_target_surface_id(vocab_name, vocab, ent)
-                        target_ids.append(w_id)
-                        vocab_names.append(vocab_name)
+                        if self.just_db:
+                            if vocab_name == 'name':
+                                target_ids.append(w_id)
+                                vocab_names.append(vocab_name)
+                            else:
+                                logger.debug('Reporting just restaurants names')
+                        else:
+                            target_ids.append(w_id)
+                            vocab_names.append(vocab_name)
                         w_found = True
                         break
                 if w_found:
@@ -363,7 +369,7 @@ class Dstc2:
 
     @property
     def gold_row_lens(self):
-        return self.self._match_row_lens
+        return self._match_row_lens
 
     @property
     def max_row_len(self):

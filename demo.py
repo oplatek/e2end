@@ -8,10 +8,14 @@ import logging, random, os, argparse, sys
 from datetime import datetime
 import tensorflow as tf
 from e2end.utils import update_config, load_configs, save_config, git_info, setup_logging, elapsed_timer, launch_tensorboard
-from e2end.debug import start_ipdb
+from e2end.debug import setup_debug_hook
 from e2end.training import EarlyStopper
 from e2end.dataset.dstc2 import Dstc2, Dstc2DB
 import e2end.model
+import e2end.model.fast_compilation
+
+
+setup_debug_hook()
 
 
 def training(sess, m, db, train, dev, config, train_writer, dev_writer):
@@ -71,8 +75,6 @@ def training(sess, m, db, train, dev, config, train_writer, dev_writer):
                         stopper_reward = - dev_avg_turn_loss
                         if not stopper.save_and_check(stopper_reward, m.step, sess):
                             raise RuntimeError('Training not improving on train set')
-    except Exception as e:
-        start_ipdb(e)
     finally:
         logger.info('Training stopped after %7d steps and %7.2f epochs. See logs for %s', m.step, m.step / len(train), config.train_dir)
         logger.info('Saving current state. Please wait!\nBest model has reward %7.2f form step %7d is %s' % stopper.highest_reward())
@@ -134,30 +136,30 @@ if __name__ == "__main__":
     ap.add_argument('--dev_file', default='./data/dstc2/data.dstc2.dev.json')
     ap.add_argument('--db_file', default='./data/dstc2/data.dstc2.db.json')
     ap.add_argument('--word_embed_size', type=int, default=10)
-    ap.add_argument('--epochs', default=20000)
-    ap.add_argument('--learning_rate', default=0.0005)
-    ap.add_argument('--mixer_learning_rate', default=0.0005)
-    ap.add_argument('--max_gradient_norm', default=5.0)
-    ap.add_argument('--validate_every', default=500)
-    ap.add_argument('--reinforce_first_step', default=sys.maxsize)
-    ap.add_argument('--reinforce_next_step', default=5000)
-    ap.add_argument('--eval_func_weights', nargs='*', default=[1.0, 1.0, 1.0])
-    ap.add_argument('--train_loss_every', default=1000)
-    ap.add_argument('--reward_moving_avg_decay', default=0.99)
-    ap.add_argument('--train_sample_every', default=100)
-    ap.add_argument('--dev_log_sample_every', default=10)
-    ap.add_argument('--batch_size', default=1)
-    ap.add_argument('--dev_batch_size', default=1)
-    ap.add_argument('--embedding_size', default=20)
-    ap.add_argument('--dropout', default=1.0)
-    ap.add_argument('--db_dropout', default=1.0)
-    ap.add_argument('--feat_embed_size', default=2)
-    ap.add_argument('--nbest_models', default=3)
-    ap.add_argument('--not_change_limit', default=100)  # FIXME Be sure that we compare models from different epochs
-    ap.add_argument('--encoder_layers', default=1)
-    ap.add_argument('--decoder_layers', default=1)
-    ap.add_argument('--sample_unk', default=0)
-    ap.add_argument('--encoder_size', default=20)
+    ap.add_argument('--epochs', type=int, default=20000)
+    ap.add_argument('--learning_rate', type=float, default=0.0005)
+    ap.add_argument('--mixer_learning_rate', type=float, default=0.0005)
+    ap.add_argument('--max_gradient_norm', type=float, default=5.0)
+    ap.add_argument('--validate_every', type=int, default=500)
+    ap.add_argument('--reinforce_first_step', type=int, default=sys.maxsize)
+    ap.add_argument('--reinforce_next_step', type=int, default=5000)
+    ap.add_argument('--eval_func_weights', type=float, nargs='*', default=[1.0, 1.0, 1.0])
+    ap.add_argument('--train_loss_every', type=int, default=1000)
+    ap.add_argument('--reward_moving_avg_decay', type=float, default=0.99)
+    ap.add_argument('--train_sample_every', type=int, default=100)
+    ap.add_argument('--dev_log_sample_every', type=int, default=10)
+    ap.add_argument('--batch_size', type=int, default=1)
+    ap.add_argument('--dev_batch_size', type=int, default=1)
+    ap.add_argument('--embedding_size', type=int, default=20)
+    ap.add_argument('--dropout', type=float, default=1.0)
+    ap.add_argument('--db_dropout', type=float, default=1.0)
+    ap.add_argument('--feat_embed_size', type=int, default=2)
+    ap.add_argument('--nbest_models', type=int, default=3)
+    ap.add_argument('--not_change_limit', type=int, default=100)  # FIXME Be sure that we compare models from different epochs
+    ap.add_argument('--encoder_layers', type=int, default=1)
+    ap.add_argument('--decoder_layers', type=int, default=1)
+    ap.add_argument('--sample_unk', type=int, default=0)
+    ap.add_argument('--encoder_size', type=int, default=20)
     ap.add_argument('--model', default='E2E_property_decoding')
     ap.add_argument('--initial_state_attention', action='store_false', default=True, help='Used for resuming decoding from previous round, kind of what we are doing here')
     ap.add_argument('--train_first_n', type=int, default=None)
@@ -215,7 +217,7 @@ if __name__ == "__main__":
     c.num_words = len(train.words_vocab)
     c.num_rows = db.num_rows
     c.num_cols = db.num_cols
-    c.restaurant_name_vocab_id = db.col_names_vocab.get_id('name')
+    c.restaurant_name_vocab_id = db.get_col_idx('name')
     c.git_info = git_info()
     logger.info('Config\n\n: %s\n\n', c)
     logger.info('Saving helper files')
@@ -226,7 +228,7 @@ if __name__ == "__main__":
     if c.model == "E2E_property_decoding":
         m = e2end.model.E2E_property_decoding(c)
     elif c.model == "FastComp":
-        m = e2end.model.FastComp(c)
+        m = e2end.model.fast_compilation.FastComp(c)
     else:
         raise KeyError('Unknown model')
 

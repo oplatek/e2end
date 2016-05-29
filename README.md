@@ -5,6 +5,8 @@ Todo
 ----
 - CF: zapnout ondruv spellchecker
 - CF: zmenit cil dynamicky aby nerikali goaly vsechny najednou
+- CF: proc konverzujou i za druhe
+- CF: jak zarucit maximalne aby se userove neopakovali pro round
 - pouzit softmax misto sigmoidy
 - trenovat binarni klasifikatory pro vyber radku
 - enforce decoder embeddings to be the same to DB and WORD embeddings (or make them close together - too complicated rather the same)

@@ -12,10 +12,11 @@ logger.setLevel(logging.DEBUG)
 class FastComp(E2E_property_decoding):
     '''Dummy class just for debugging training loop - it compiles fast.'''
     def __init__(self, config):
+        self.config = c = config
         self._var2save = tf.Variable([1])
         self.step, self.config = 0, config
 
-        self._define_inputs(config)
+        self._define_inputs()
         arr = [
                   self.turn_len, self.dec_targets, self.target_lens,
                   self.is_first_turn, self.feed_previous,
