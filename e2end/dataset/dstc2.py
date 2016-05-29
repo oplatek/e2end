@@ -50,8 +50,11 @@ class Dstc2DB:
         # See http://stackoverflow.com/questions/1962980/selecting-rows-from-a-numpy-ndarray
         return np.logical_or.reduce([self.table[:,c] == v for c, v in col_val_dict.items()])
 
-    def matching_rows_mask(self, col_val_dict):
-        return self._row_mask(col_val_dict)
+    def matching_rest_names(self, col_val_dict):
+        match_rows = self.matching_rows(col_val_dict)
+        name_idx = self.get_col_idx('name')
+        restaurant_names = match_rows[:, name_idx]
+        return restaurant_names
 
     def get_col_vocab(self, col_name):
         idx = self.column_names.index(col_name)
@@ -96,12 +99,12 @@ class Dstc2:
     As a result for example the first turn has empty input and output the first system response.
     '''
 
-    def __init__(self, filename, db,
-            max_turn_len=None, max_dial_len=None, max_target_len=None,
-            first_n=None, words_vocab=None, labels_vocab=None, sample_unk=0):
+    def __init__(self, filename, db, just_db=False,
+            max_turn_len=None, max_dial_len=None, max_target_len=None, max_row_len=None,
+            first_n=None, words_vocab=None, sample_unk=0):
 
-
-        self.restaurant_name_vocab_id = db.col_names_vocab.get_id('name')
+        self.just_db = just_db
+        self.restaurant_name_vocab_id = db.get_col_idx('name')
         logger.info('\nLoading dataset %s', filename)
         self.hello_token = hello_token = 'Hello'  # Default user history for first turn
         self.EOS = EOS = 'EOS'   # Symbol which the decoder should produce as last one'
@@ -142,11 +145,13 @@ class Dstc2:
         t = sorted([len(turn_target) for dialog_targets in targets for turn_target in dialog_targets])
         maxtarl, perc95t = t[-1], t[int(0.95 * len(s))]
         self._max_target_len = mtarl = max_target_len or maxtarl
+
         logger.info('Target len: %4d.\nMax target len %4d.\n95-percentil %4d.\n', maxtarl, mtarl, perc95t)
         self._turn_targets = ttarg = words_vocab.get_i(EOS) * np.ones((len(dialogs), mdl, mtarl), dtype=np.int64)
         self._turn_target_lens = np.zeros((len(dialogs), mdl), dtype=np.int64)
         self._word_speakers = w_spk = np.zeros((len(dialogs), mdl, mtl), dtype=np.int64)
         self._match_rows_props = np.zeros((len(dialogs), mdl, db.num_rows), dtype=np.int64)
+        self._match_row_lens = np.zeros((len(dialogs),), dtype=np.int64)
 
         tmp1, tmp2 = db.column_names + ['words'], db.col_vocabs + [words_vocab]
         self.target_vocabs = OrderedDict(zip(tmp1, tmp2))
@@ -157,7 +162,7 @@ class Dstc2:
             zip(self.target_vocabs.keys(),
                 [0] + list(self.word_vocabs_uplimit.values())[:-1]))
 
-        dial_lens = []
+        dial_lens, this_max_row = [], 0
         for i, (d, spkss, entss, dtargss) in enumerate(zip(dialogs, speakers, entities, targets)):
             assert len(d) == len(dtargss)
             dial_len = 0
@@ -166,7 +171,11 @@ class Dstc2:
             for j, (turn, spks, ents, targets) in enumerate(zip(d, spkss, entss, dtargss)):
                 sys_word_ids, vocab_names = self._extract_vocab_ids(targets)
 
-                if j > mdl or len(turn) > mtl or len(sys_word_ids) > mtarl:
+                restaurants = self._row_all_prop_match(sys_word_ids, vocab_names, db)
+                num_match = restaurants.shape[0]
+                this_max_row = max(num_match, this_max_row)
+
+                if j > mdl or len(turn) > mtl or len(sys_word_ids) > mtarl or (max_row_len is not None and num_match > max_row_len):
                     logger.debug("Keep prefix of turns, discard following turns because:"
                         "a) num_turns too big "
                         "b) current turn too long. "
@@ -183,7 +192,9 @@ class Dstc2:
                         self._word_ent[i, j, l, k] = e[k]
 
                 self._turn_target_lens[i, j] = len(sys_word_ids)
-                self._match_rows_props[i, j, :] = self._row_all_prop_match(sys_word_ids, vocab_names, db)
+                for k in range(num_match):
+                    self._match_rows_props[i, j, k] = restaurants[k]
+                self._match_row_lens[i, j] = num_match
                 for k, w_id in enumerate(sys_word_ids):
                     ttarg[i, j, k] = w_id
             if dial_len > 0:
@@ -191,6 +202,8 @@ class Dstc2:
             else:
                 logger.debug('Discarding whole dialog: %d', i)
 
+        self._max_match_rows = max_row_len or this_max_row
+        logger.info('Max row len this set %d vs max_row_len %d', this_max_row, self._max_match_rows)
         self._dial_lens = np.array(dial_lens)
         logger.info('\nLoaded dataset len(%s): %d', filename, len(self))
 
@@ -206,10 +219,10 @@ class Dstc2:
 
         Returns: numpy array representing mask of matching rows.'''
         if 'name' not in vocab_names:
-            return np.zeros(db.num_rows)
+            return np.array([])
         else:
-            const = dict([(db.col_names_vocab.get_i(vn), wid - self.word_vocabs_downlimit[vn]) for wid, vn in zip(word_ids, vocab_names) if vn in ['area', 'food', 'pricerange']])
-            return db.matching_rows_mask(const)
+            const = dict([(db.get_col_idx(vn), wid - self.word_vocabs_downlimit[vn]) for wid, vn in zip(word_ids, vocab_names) if vn in ['area', 'food', 'pricerange']])
+            return db.matching_rest_names(const)
 
     def _row_all_prop_match(self, word_ids, vocab_names, db):
         '''If a system response - word_ids contains an restaurant name, we know exact row which to output,
@@ -220,9 +233,9 @@ class Dstc2:
             vocab_names:
             db:
 
-        Returns: numpy array representing mask of matching rows.'''
+        Returns: (num_match_rows, ids of restaurant names determining the matching rows).'''
         if 'name' not in vocab_names:
-            return np.zeros(db.num_rows)
+            return np.array([])
         else:
             name_idx = vocab_names.index('name')
             restaurant_idx = word_ids[name_idx] - self.word_vocabs_downlimit['name']
@@ -230,11 +243,10 @@ class Dstc2:
             restaurant_row = db.matching_rows({name_vocab_id: restaurant_idx})
             assert len(restaurant_row) == 1, str(restaurant_row)
             restaurant_row = restaurant_row[0]
-            col_idx = [db.col_names_vocab.get_i(vn) for vn in ['area', 'food', 'pricerange']]
+            col_idx = [db.get_col_idx(vn) for vn in ['area', 'food', 'pricerange']]
             filter_col_val = dict([(c, restaurant_row[c]) for c in col_idx])
-            rows_mask = db.matching_rows_mask(filter_col_val)
-            assert len(rows_mask) > 0, str(filter_col_val)
-            return rows_mask
+            restaurants = db.matching_rest_names(filter_col_val)
+            return restaurants
 
 
     def _extract_vocab_ids(self, target_words):
@@ -264,8 +276,11 @@ class Dstc2:
                     break
             if not w_found:
                 logger.debug('Target word "%s" treated as regular word', w)
-                target_ids.append(self.get_target_surface_id('words', self._vocab, w))
-                vocab_names.append('words')
+                if self.just_db:
+                    logger.debug('Skipping regular word in the targets')
+                else:
+                    target_ids.append(self.get_target_surface_id('words', self._vocab, w))
+                    vocab_names.append('words')
         assert len(vocab_names) == len(target_ids)
         return target_ids, vocab_names
 
@@ -343,8 +358,16 @@ class Dstc2:
         return self._turn_target_lens
 
     @property
-    def match_row_property(self):
+    def gold_rows(self):
         return self._match_rows_props
+
+    @property
+    def gold_row_lens(self):
+        return self.self._match_row_lens
+
+    @property
+    def max_row_len(self):
+        return self._max_match_rows
 
     def shuffle(self):
         raise NotImplementedError('I do not use it currently, I better raise the exception than update the list every time')

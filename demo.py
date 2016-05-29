@@ -42,7 +42,10 @@ def training(sess, m, db, train, dev, config, train_writer, dev_writer):
                                 m.dropout_db_keep_prob: c.db_dropout,
                                 m.feed_previous: False,
                                 m.dec_targets.name: train.turn_targets[i:i+1, t, :],
-                                m.target_lens.name: train.turn_target_lens[i:i+1, t], }
+                                m.target_lens.name: train.turn_target_lens[i:i+1, t],
+                                m.gold_rows: train.gold_rows[i:i+1, t, :],
+                                m.gold_row_lens: train.gold_row_lens[i:i+1, t],
+                                }
                     for k, feat in enumerate(m.feat_list):
                         if k == 0:
                             assert 'words' in feat.name, feat.name
@@ -133,6 +136,7 @@ if __name__ == "__main__":
     ap.add_argument('--word_embed_size', type=int, default=10)
     ap.add_argument('--epochs', default=20000)
     ap.add_argument('--learning_rate', default=0.0005)
+    ap.add_argument('--mixer_learning_rate', default=0.0005)
     ap.add_argument('--max_gradient_norm', default=5.0)
     ap.add_argument('--validate_every', default=500)
     ap.add_argument('--reinforce_first_step', default=sys.maxsize)
@@ -158,6 +162,7 @@ if __name__ == "__main__":
     ap.add_argument('--initial_state_attention', action='store_false', default=True, help='Used for resuming decoding from previous round, kind of what we are doing here')
     ap.add_argument('--train_first_n', type=int, default=None)
     ap.add_argument('--dev_first_n', type=int, default=None)
+    ap.add_argument('--just_db', action='store_true', default=False)
 
     c = ap.parse_args()
     conf_dict = load_configs(c.config)
@@ -188,12 +193,15 @@ if __name__ == "__main__":
 
     with elapsed_timer() as preprocess_timer:
         db = Dstc2DB(c.db_file)
-        train = Dstc2(c.train_file, db, sample_unk=c.sample_unk, first_n=c.train_first_n)
+        train = Dstc2(c.train_file, db, just_db=c.just_db,
+                      sample_unk=c.sample_unk, first_n=c.train_first_n)
         dev = Dstc2(c.dev_file, db,
+                just_db=train.just_db,
                 words_vocab=train.words_vocab,
                 max_turn_len=train.max_turn_len,
                 max_dial_len=train.max_dial_len,
                 max_target_len=train.max_target_len,
+                max_row_len=train.max_row_len,
                 first_n=c.dev_first_n)
     logger.info('Data loaded in %.2f s', preprocess_timer())
 
@@ -202,6 +210,7 @@ if __name__ == "__main__":
     c.col_vocab_sizes = [len(vocab) for vocab in db.col_vocabs]
     c.max_turn_len = train.max_turn_len
     c.max_target_len = train.max_target_len
+    c.max_row_len = train.max_row_len
     c.column_names = db.column_names
     c.num_words = len(train.words_vocab)
     c.num_rows = db.num_rows
@@ -218,8 +227,6 @@ if __name__ == "__main__":
         m = e2end.model.E2E_property_decoding(c)
     elif c.model == "FastComp":
         m = e2end.model.FastComp(c)
-    elif c.model == "RowPredictions":
-        m = e2end.model.RowPredictions
     else:
         raise KeyError('Unknown model')
 

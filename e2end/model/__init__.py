@@ -17,10 +17,8 @@ __all__ = ['fast_compilation.FastComp', 'row_model.RowPredictions']
 
 class E2E_property_decoding():
 
-    class LastDecodedValues:
-        pass
-
-    def _define_inputs(self, c):
+    def _define_inputs(self):
+        c = self.config
         self.db_row_initializer = tf.placeholder(tf.int64, shape=(c.num_rows, c.num_cols), name='row_initializer')
         self.db_rows = tf.Variable(self.db_row_initializer, trainable=False, collections=[], name='db_rows')
 
@@ -48,8 +46,13 @@ class E2E_property_decoding():
 
         self.dec_targets = tf.placeholder(tf.int64, shape=(c.batch_size, c.max_target_len), name='dec_targets')
         self.target_lens = tf.placeholder(tf.int64, shape=(c.batch_size,), name='target_lens')
+        self.gold_rows = tf.placeholder(tf.int64, shape=(c.batch_size, c.max_valid_rows), name='gold_rows')
+        self.gold_row_lens = tf.placeholder(tf.int64, shape=(c.batch_size,), name='gold_row_lens')
+        self.gold_rowss = [tf.squeeze(r, [1]) for r in tf.split(1, c.max_row_len, self.gold_rows)]
+        self.rowss_maskk = [tf.squeeze(m, [1]) for m in tf.split(1, c.max_row_len, tf_lengths2mask2d(self.gold_row_lens, c.max_row_len))]
 
-    def _build_encoder(self, c):
+    def _build_encoder(self):
+        c = self.config
         logger.debug('For each word_i from i in 1..max_turn_len there is a list of features: word, belongs2slot1, belongs2slot2, ..., belongs2slotK')
         logger.debug('Feature list uses placelhoder.name to create feed dictionary')
 
@@ -101,7 +104,8 @@ class E2E_property_decoding():
         words_embeddings = feat_embeddings[0]
         return encoder_cell, words_hidden_feat, dialog_state_after_turn, embedded_words, words_embeddings
 
-    def _build_db(self, c, encoder_cell, words_hidden_feat, dialog_state_after_turn, words_embedded):
+    def _build_db(self, encoder_cell, words_hidden_feat, dialog_state_after_turn, words_embedded):
+        c = self.config
         col_embeddings = [tf.get_variable('col_values_embedding{}'.format(i),
                                           initializer=tf.random_uniform([col_vocab_size, c.col_emb_size],
                                                                         -math.sqrt(3), math.sqrt(3))) for
@@ -181,7 +185,8 @@ class E2E_property_decoding():
         logger.debug('db_embed.get_shape() %s', db_embed.get_shape())
         return db_embed, row_selected, col_embeddings
 
-    def _build_decoder(self, c, encoded_state, att_hidd_feat_list, col_embeddings, word_embeddings):
+    def _build_decoder(self, encoded_state, att_hidd_feat_list, col_embeddings, word_embeddings):
+        c = self.config
         logger.debug('The decoder uses special token GO_ID as first input. Adding to vocabulary.')
         self.GO_ID = c.num_words
         self.goid = tf.constant(self.GO_ID)
@@ -242,7 +247,8 @@ class E2E_property_decoding():
                                                         lambda: decoder(False))
         return targets, target_mask, dec_logitss
 
-    def _build_reward_func(self, c, dec_logitss, targets):
+    def _build_reward_func(self, dec_logitss, targets):
+        c = self.config
         logger.debug('Compliling helper functions which identifies properties type {word, col1, col2,..} of decoded and target words')
         self.dec_vocab_idss_op = tf_trg_word2vocab_id(self.dec_outputs, self.vocabs_cum_start_idx_low, self.vocabs_cum_start_idx_up)
         self.trg_vocab_idss_op = tf_trg_word2vocab_id(targets, self.vocabs_cum_start_idx_low, self.vocabs_cum_start_idx_up)
@@ -276,19 +282,113 @@ class E2E_property_decoding():
         loss = tf.nn.seq2seq.sequence_loss(dec_logitss, targets[1:], self.target_mask, softmax_loss_function=None)
         return loss, eval_functions
 
+    def _build_mixer_updates(self, dec_logitss, targets):
+        """
+        This trainer is implementation of the Sequence Level Training with
+        Recurrent Neural Networks by Ranzato et al.
+        (http://arxiv.org/abs/1511.06732). It trains the translation for a given
+        number of epoch using the standard cross-entropy loss and then it gradually
+        starts to use the reinforce algorithm for the optimization.
+
+        dec_logitss: list of [batch x vocabulary] tensors (length max sequence)
+        """
+
+        c = self.config
+        logger.debug('Reward need to be computed outside of TF')
+        tf.reward = tf.placeholder(tf.float32, shape=(c.batch_size,), name='reward')
+
+        with tf.variable_scope("reinforce_gradients"):
+
+            self.expected_reward = tf.get_variable('expected_reward',
+                                                   initializer=tf.zeros([c.batch_size, c.encoder_size], dtype=tf.float32),
+                                                   trainable=False)
+            self.update_expected_reward = assign_moving_average(self.expected_reward, tf.reward, c.reward_moving_avg_decay)
+
+            # this is a dirty trick to get the indices of maxima in the logits
+            max_logits = \
+                [tf.expand_dims(tf.reduce_max(l, 1), 1) \
+                 for l in dec_logitss] ## batch x 1 x 1
+            indicator = \
+                [tf.to_float(tf.equal(ml, l)) \
+                 for ml, l in zip(max_logits, dec_logitss)] ## batch x slovnik
+
+            logger.debug("Forward cmomputation graph ready")
+
+            # this is implementation of equation (11) in the paper
+            derivatives = \
+                [tf.reduce_sum(tf.expand_dims(self.reward - r, 1) * \
+                               (tf.nn.softmax(l) - i) * w, 0, keep_dims=True) \
+                 for r, l, i, w in zip(self.expected_reward, dec_logitss,
+                                       indicator, self.target_mask)]
+            ## ^^^ list of  [1 x vocabulary] tensors
+
+            # this derivatives are constant for us now, we don't really
+            # want to propagate the dradient back to this computaiton
+            derivatives_stopped = [tf.stop_gradient(d) for d in derivatives]
+
+            # we must train the regressor independently - we use moving avarage instead - no variables
+            trainable_vars = \
+                [v for v in tf.trainable_variables() if not v.name.startswith('mixer')]
+
+            # this is implementation of equation (10) in the paper
+            reinforce_gradients = \
+                [tf.gradients(l * d, trainable_vars) \
+                 for l, d in zip(dec_logitss, derivatives_stopped)]
+            ## ^^^ [slovnik x shape promenny](delky max seq)
+
+            logger.debug("Reinfoce gradients computed")
+
+        with tf.variable_scope("cross_entropy_gradients"):
+            cross_entropies = \
+                [tf.reduce_sum(tf.nn.sparse_softmax_cross_entropy_with_logits(l, t) * w, 0) \
+                 for l, t, w in zip(dec_logitss, targets, self.target_mask)]
+            ## ^^^ list of scalars in time
+
+            xent_gradients = [tf.gradients(e, trainable_vars) for e in cross_entropies]
+            logger.debug("Cross-entropy gradients computed")
+
+        self.mixer_weights_plc = [tf.placeholder(tf.float32, []) for _ in dec_logitss]
+
+        mixed_gradients = []  # a list for each of the traininable variables
+
+        for i, (rgs, xent_gs, mix_w) in enumerate(zip(reinforce_gradients, xent_gradients, self.mixer_weights_plc)):
+            for j, (rg, xent_g) in enumerate(zip(rgs, xent_gs)):
+                if xent_g is None and i == 0:
+                    mixed_gradients.append(None)
+                    continue
+
+                if type(xent_g) == tf.Tensor or type(xent_g) == tf.IndexedSlices:
+                    g = tf.add(tf.scalar_mul(mix_w, xent_g), tf.scalar_mul(1 - mix_w, rg))
+                elif xent_g is None:
+                    continue
+                else:
+                    raise Exception("Unnkown type of gradients: {}".format(type(xent_g)))
+
+                if i == 0:
+                    mixed_gradients.append(g)
+                else:
+                    if mixed_gradients[j] is None:
+                        mixed_gradients[j] = g
+                    else:
+                        mixed_gradients[j] += g
+
+        self.mixer_optimizer = \
+            tf.train.AdamOptimizer(learning_rate=c.mixer_learning_rate).apply_gradients(zip(mixed_gradients, trainable_vars))
+
+
     def __init__(self, config):
         self.config = c = config  # shortcut as it is used heavily
         logger.info('Compiling %s', self.__class__.__name__)
         self.step = 0
 
-        self._define_inputs(c)
+        self._define_inputs()
         with tf.variable_scope('encoder'), elapsed_timer() as inpt_timer:
-            encoder_cell, words_hidden_feat, dialog_state_after_turn, words_embedded, words_embeddings = self._build_encoder(c)
+            encoder_cell, words_hidden_feat, dialog_state_after_turn, words_embedded, words_embeddings = self._build_encoder()
             logger.debug('Initialization of encoder took  %.2f s.', inpt_timer())
 
         with tf.variable_scope('db_encoder'), elapsed_timer() as db_timer:
             if c.use_db_encoder:
-                db_embed, row_selected, col_embeddings = self._build_db(c, encoder_cell, words_hidden_feat, dialog_state_after_turn, words_embedded)
+                db_embed, row_selected, col_embeddings = self._build_db(encoder_cell, words_hidden_feat, dialog_state_after_turn, words_embedded)
                 encoded_state = tf.concat(1, [dialog_state_after_turn, tf.squeeze(row_selected, [2]), db_embed])
                 att_hidd_feat_list = words_hidden_feat + [db_embed]
                 logger.info('\nInitialized db encoder in %.2f s\n', db_timer())
@@ -299,16 +399,15 @@ class E2E_property_decoding():
                 logger.info('\nUsing plain encoder decoder\n')
 
         with tf.variable_scope('decoder'), elapsed_timer() as dec_timer:
-            targets, self.target_mask, dec_logitss = self._build_decoder(c, encoded_state, att_hidd_feat_list, col_embeddings, words_embeddings)
+            targets, self.target_mask, dec_logitss = self._build_decoder(encoded_state, att_hidd_feat_list, col_embeddings, words_embeddings)
             self.dec_outputs = [tf.arg_max(dec_logits, 1) for dec_logits in dec_logitss]
             logger.debug('Building of the decoder took %.2f s.', dec_timer())
 
         with tf.variable_scope('loss_and_eval'), elapsed_timer() as loss_timer:
-            self.loss, self.eval_func = self._build_reward_func(c, dec_logitss, targets)
+            self.loss, self.eval_func = self._build_reward_func(dec_logitss, targets)
             logger.debug('Building the loss/reward functions ops took %.2f s', loss_timer())
 
         with tf.variable_scope('updates'), elapsed_timer() as updates_timer:
-            # TODO load reward and implement mixer
             self._optimizer = opt = tf.train.AdamOptimizer(c.learning_rate)
             tf.scalar_summary(self.loss.op.name + 'loss', self.loss)
             params = tf.trainable_variables()
@@ -320,13 +419,7 @@ class E2E_property_decoding():
 
             if c.reinforce_first_step >= 0:
                 logger.info('Reinforce algorithm will be used after step %d. Compiling reward loading into TF', c.reinforce_first_step)
-                logger.debug('Reward need to be computed outside of TF')
-                tf.reward = tf.placeholder(tf.float32, shape=(c.batch_size,), name='reward')
-
-                self.expected_reward = tf.get_variable('expected_reward', initializer=tf.zeros([c.batch_size, c.encoder_size], dtype=tf.float32), 
-                        trainable=False)
-                self.update_expected_reward = assign_moving_average(self.expected_reward, tf.reward, c.reward_moving_avg_decay)
-                # raise NotImplementedError('Mixer gradients') # FIXME
+                self._build_mixer_updates(dec_logitss, targets)
 
         self.summarize = tf.merge_all_summaries()
 
@@ -346,7 +439,7 @@ class E2E_property_decoding():
         self.step += 1
         c = self.config
         if c.reinforce_first_step < self.step:
-            self._xent_update(sess, train_dict, log_output)
+            return self._xent_update(sess, train_dict, log_output)
 
         logger.info('Rein updates for step %7d', self.step)
 
