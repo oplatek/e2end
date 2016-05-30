@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-import json, subprocess, os, logging, math
+import json, subprocess, os, logging
+import numpy as np
 from contextlib import contextmanager
 from timeit import default_timer
 
@@ -9,7 +10,8 @@ logger = logging.getLogger(__name__)
 
 
 def sigmoid(x):
-    return 1 / (1 + math.exp(-x))
+    x = np.array(x)
+    return np.exp(-np.logaddexp(0, -x))
 
 
 def update_config(c, d):

@@ -21,15 +21,16 @@ setup_debug_hook()
 def training(sess, m, db, train, dev, config, train_writer, dev_writer):
     with elapsed_timer() as init_timer:
         tf.initialize_all_variables().run(session=sess)
+        logger.info('Graph initialized in %.2f s', init_timer())
 
-        stopper = EarlyStopper(c.nbest_models, c.not_change_limit, c.name)
-    logger.info('Graph initialized in %.2f s', init_timer())
+    with elapsed_timer() as load_db_data:
+        sess.run(m.db_rows.initializer, {m.db_row_initializer: db.table})
+        sess.run(m.vocabs_cum_start_idx_low.initializer, {m.vocabs_cum_start_initializer: list(train.word_vocabs_downlimit.values())})
+        sess.run(m.vocabs_cum_start_idx_up.initializer, {m.vocabs_cum_start_initializer: list(train.word_vocabs_uplimit.values())})
+        logger.info('DB data loaded in %0.2f s', load_db_data())
 
-    logger.info('Load DB data')
-    sess.run(m.db_rows.initializer, {m.db_row_initializer: db.table})
-    sess.run(m.vocabs_cum_start_idx_low.initializer, {m.vocabs_cum_start_initializer: list(train.word_vocabs_downlimit.values())})
-    sess.run(m.vocabs_cum_start_idx_up.initializer, {m.vocabs_cum_start_initializer: list(train.word_vocabs_uplimit.values())})
-
+    stopper, stopper_reward = EarlyStopper(c.nbest_models, c.not_change_limit, c.name), 0.0
+    tf.get_default_graph().finalize()
     try:
         dialog_idx = list(range(len(train)))
         logger.info('training set size: %d', len(dialog_idx))
@@ -60,14 +61,15 @@ def training(sess, m, db, train, dev, config, train_writer, dev_writer):
                         else:
                             input_fd[feat.name] = train.word_entities[i:i+1, t, k - 1, :]
 
-                    if m.step % c.train_sample_every == 0:
-                        tr_step_outputs = m.eval_step(sess, input_fd, log_output=True)
-                        m.log('train', train_writer, input_fd, tr_step_outputs, e, dstc2_set=train, labels_dt=input_fd)
-                    elif m.step % c.train_loss_every == 0:
+                    m.step_increment()
+                    if m.step % c.train_loss_every == 0:
                         tr_step_outputs = m.train_step(sess, input_fd, log_output=True)
                         m.log('train', train_writer, input_fd, tr_step_outputs, e, dstc2_set=train, labels_dt=input_fd)
                     else:
                         m.train_step(sess, input_fd)
+                    if m.step % c.train_sample_every == 0:
+                        tr_step_outputs = m.eval_step(sess, input_fd, log_output=True)
+                        m.log('train', train_writer, input_fd, tr_step_outputs, e, dstc2_set=train, labels_dt=input_fd)
 
                     if m.step % c.validate_every == 0:
                         dev_ag_turn_reward, dev_avg_turn_loss = validate(sess, m, dev, e, dev_writer)
@@ -77,7 +79,7 @@ def training(sess, m, db, train, dev, config, train_writer, dev_writer):
                             raise RuntimeError('Training not improving on train set')
     finally:
         logger.info('Training stopped after %7d steps and %7.2f epochs. See logs for %s', m.step, m.step / len(train), config.train_dir)
-        logger.info('Saving current state. Please wait!\nBest model has reward %7.2f form step %7d is %s' % stopper.highest_reward())
+        logger.info('Saving current state. Please wait!\nBest model has reward %7.2f form step %7d', stopper.highest_reward(), m.step)
         stopper.saver.save(sess=sess, save_path='%s-FINAL-%.4f-step-%07d' % (stopper.saver_prefix, stopper_reward, m.step))
 
 
@@ -128,43 +130,47 @@ if __name__ == "__main__":
     ap.add_argument('--config', nargs='*', default=[])
     ap.add_argument('--exp', default='exp')
     ap.add_argument('--validate_to_dir', default=None)
-    ap.add_argument('--use_db_encoder', action='store_true', default=False)
+    ap.add_argument('--save_graph', action='store_true', default=False)
     ap.add_argument('--train_dir', default=None)
     ap.add_argument('--seed', type=int, default=123)
     ap.add_argument('--log_console_level', default="INFO")
     ap.add_argument('--train_file', default='./data/dstc2/data.dstc2.train.json')
     ap.add_argument('--dev_file', default='./data/dstc2/data.dstc2.dev.json')
     ap.add_argument('--db_file', default='./data/dstc2/data.dstc2.db.json')
+    ap.add_argument('--train_first_n', type=int, default=None)
+    ap.add_argument('--dev_first_n', type=int, default=None)
+
+    ap.add_argument('--model', default='E2E_property_decoding')
+    ap.add_argument('--use_db_encoder', action='store_true', default=False)
+    ap.add_argument('--just_db', action='store_true', default=False)
+    ap.add_argument('--eval_func_weights', type=float, nargs='*', default=[1.0, 1.0, 1.0])
+
+    ap.add_argument('--max_gradient_norm', type=float, default=5.0)
+    ap.add_argument('--reward_moving_avg_decay', type=float, default=0.99)
     ap.add_argument('--word_embed_size', type=int, default=10)
-    ap.add_argument('--epochs', type=int, default=20000)
+    ap.add_argument('--embedding_size', type=int, default=4)
+    ap.add_argument('--dropout', type=float, default=1.0)
+    ap.add_argument('--db_dropout', type=float, default=1.0)
+    ap.add_argument('--encoder_size', type=int, default=3)
+    ap.add_argument('--feat_embed_size', type=int, default=2)
+    ap.add_argument('--encoder_layers', type=int, default=1)
+    ap.add_argument('--decoder_layers', type=int, default=1)
+    ap.add_argument('--initial_state_attention', action='store_false', default=True, help='Used for resuming decoding from previous round, kind of what we are doing here')
     ap.add_argument('--learning_rate', type=float, default=0.0005)
     ap.add_argument('--mixer_learning_rate', type=float, default=0.0005)
-    ap.add_argument('--max_gradient_norm', type=float, default=5.0)
-    ap.add_argument('--validate_every', type=int, default=500)
+
     ap.add_argument('--reinforce_first_step', type=int, default=sys.maxsize)
     ap.add_argument('--reinforce_next_step', type=int, default=5000)
-    ap.add_argument('--eval_func_weights', type=float, nargs='*', default=[1.0, 1.0, 1.0])
+    ap.add_argument('--epochs', type=int, default=20000)
     ap.add_argument('--train_loss_every', type=int, default=1000)
-    ap.add_argument('--reward_moving_avg_decay', type=float, default=0.99)
+    ap.add_argument('--validate_every', type=int, default=500)
+    ap.add_argument('--nbest_models', type=int, default=3)
+    ap.add_argument('--not_change_limit', type=int, default=100)  # FIXME Be sure that we compare models from different epochs
+    ap.add_argument('--sample_unk', type=int, default=0)
     ap.add_argument('--train_sample_every', type=int, default=100)
     ap.add_argument('--dev_log_sample_every', type=int, default=10)
     ap.add_argument('--batch_size', type=int, default=1)
     ap.add_argument('--dev_batch_size', type=int, default=1)
-    ap.add_argument('--embedding_size', type=int, default=20)
-    ap.add_argument('--dropout', type=float, default=1.0)
-    ap.add_argument('--db_dropout', type=float, default=1.0)
-    ap.add_argument('--feat_embed_size', type=int, default=2)
-    ap.add_argument('--nbest_models', type=int, default=3)
-    ap.add_argument('--not_change_limit', type=int, default=100)  # FIXME Be sure that we compare models from different epochs
-    ap.add_argument('--encoder_layers', type=int, default=1)
-    ap.add_argument('--decoder_layers', type=int, default=1)
-    ap.add_argument('--sample_unk', type=int, default=0)
-    ap.add_argument('--encoder_size', type=int, default=20)
-    ap.add_argument('--model', default='E2E_property_decoding')
-    ap.add_argument('--initial_state_attention', action='store_false', default=True, help='Used for resuming decoding from previous round, kind of what we are doing here')
-    ap.add_argument('--train_first_n', type=int, default=None)
-    ap.add_argument('--dev_first_n', type=int, default=None)
-    ap.add_argument('--just_db', action='store_true', default=False)
 
     c = ap.parse_args()
     conf_dict = load_configs(c.config)
@@ -240,11 +246,11 @@ if __name__ == "__main__":
     launch_tensorboard(c.train_dir, c.tensorboardlog)
 
     with elapsed_timer() as sess_timer, tf.Session() as sess:
-        train_writer = tf.train.SummaryWriter(c.train_dir + '/train', sess.graph)
-        logger.debug('Loading session took %.2f', sess_timer())
+        train_writer = tf.train.SummaryWriter(c.train_dir + '/train', graph_def=sess.graph if c.save_graph else None)
+        logger.debug('Setting up SummaryWriter took %.2f', sess_timer())
         if c.validate_to_dir is not None:
             logger.info('Just launching validation and NO training')
-            dev_writer = tf.train.SummaryWriter(c.validate_to_dir, sess.graph)
+            dev_writer = tf.train.SummaryWriter(c.validate_to_dir, graph_def=sess.graph if c.save_graph else None)
             validate(sess, m, dev, -666, dev_writer)
         else:
             dev_writer = tf.train.SummaryWriter(c.train_dir + '/dev', sess.graph)

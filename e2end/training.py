@@ -55,4 +55,4 @@ class EarlyStopper(object):
         return self._not_improved <= self.not_change_limit
 
     def highest_reward(self):
-        return max(self._heap)
+        return max(self._heap) if self._heap else 0.0 

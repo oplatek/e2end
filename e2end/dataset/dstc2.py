@@ -203,6 +203,8 @@ class Dstc2:
                 logger.debug('Discarding whole dialog: %d', i)
 
         self._max_match_rows = max_row_len or this_max_row
+        self._match_rows_props = self._match_rows_props[:, :, :self._max_match_rows]
+
         logger.info('Max row len this set %d vs max_row_len %d', this_max_row, self._max_match_rows)
         self._dial_lens = np.array(dial_lens)
         logger.info('\nLoaded dataset len(%s): %d', filename, len(self))
