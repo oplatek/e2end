@@ -451,11 +451,11 @@ class E2E_property_decoding():
         l_ds = [trim_decoded(utt, c.EOS_ID) for utt in time2batch(decoder_outs)]
         utt_lens, self.dec_utts = zip(*l_ds)
         self.dec_vocab_idss = [ids[:k] for k, ids in zip(utt_lens, time2batch(dec_v_ids))]
-        row_len = eval_dict[m.gold_row_lens]
+        row_len = eval_dict[self.gold_row_lens]
         self.gold_rowss_v = [r[:d] for r, d in zip(time2batch(g_rowss_v), row_len.tolist())]
         trg_lens = eval_dict[self.target_lens.name]
         self.trg_vocab_idss = [ids[:k] for k, ids in zip(trg_lens, time2batch(trg_v_ids))]
-        self.trg_utts = [utt[:k] for k, utt in zip(trg_lens, eval_dict[self.target_lens.name].tolist())]
+        self.trg_utts = [utt[:k] for k, utt in zip(trg_lens, eval_dict[self.dec_targets.name].tolist())]
 
         w_eval_func_vals = [w * f() if w != 0 else 0 for w, f in zip(c.eval_func_weights, self.eval_functions)]
         reward = sum(w_eval_func_vals)
