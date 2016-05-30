@@ -279,7 +279,7 @@ class E2E_property_decoding():
             '''Check if we output an restaurant name that it is compatible with the supervised answer'''
             rows_with_names_b = [[wid - c.name_low for wid in vocab_ids if c.name_low <= wid < c.name_up]
                                  for vocab_ids in self.dec_vocab_idss]
-            return np.mean([row_acc_cov(row_dec, row_gold) for row_dec, row_gold in zip(rows_with_names_b, self.gold_rowss)])
+            return np.mean([row_acc_cov(row_dec, row_gold) for row_dec, row_gold in zip(rows_with_names_b, self.gold_rowss_v)])
 
         eval_functions = [bleu_all, bleu_words, properties_match, row_match]
         assert len(eval_functions) == len(c.eval_func_weights), str(len(eval_functions) == len(c.eval_func_weights))
@@ -431,7 +431,7 @@ class E2E_property_decoding():
 
     def eval_step(self, sess, eval_dict, log_output=False):
         c = self.config
-        output_feed = self.dec_outputs + self.dec_vocab_idss_op + self.trg_vocab_idss_op + [self.loss]
+        output_feed = self.dec_outputs + self.dec_vocab_idss_op + self.trg_vocab_idss_op + self.gold_rowss + [self.loss]
         if log_output:
             output_feed.extend([self.summarize])
 
@@ -439,20 +439,23 @@ class E2E_property_decoding():
         x = len(self.dec_outputs)
         y = x + len(self.dec_vocab_idss_op)
         z = y + len(self.trg_vocab_idss_op)
-        decoder_outs, dec_v_ids, trg_v_ids = out_vals[0:x], out_vals[x: y], out_vals[y: z]
+        w = z + len(self.gold_rowss)
+        decoder_outs, dec_v_ids, trg_v_ids, g_rowss_v = out_vals[0:x], out_vals[x: y], out_vals[y: z], out_vals[z: w]
         if log_output:
-            assert z + 2 == len(out_vals), str(z, len(out_vals))
+            assert w + 2 == len(out_vals), str(w, len(out_vals))
             loss_v, sum_v = out_vals[-2:]
         else:
-            assert z+ 1 == len(out_vals), str(z, len(out_vals))
+            assert w + 1 == len(out_vals), str(w, len(out_vals))
             loss_v = out_vals[-1:]
 
         l_ds = [trim_decoded(utt, c.EOS_ID) for utt in time2batch(decoder_outs)]
         utt_lens, self.dec_utts = zip(*l_ds)
         self.dec_vocab_idss = [ids[:k] for k, ids in zip(utt_lens, time2batch(dec_v_ids))]
-        trg_lens = eval_dict['target_lens:0']
+        row_len = eval_dict[m.gold_row_lens]
+        self.gold_rowss_v = [r[:d] for r, d in zip(time2batch(g_rowss_v), row_len.tolist())]
+        trg_lens = eval_dict[self.target_lens.name]
         self.trg_vocab_idss = [ids[:k] for k, ids in zip(trg_lens, time2batch(trg_v_ids))]
-        self.trg_utts = [utt[:k] for k, utt in zip(trg_lens, eval_dict['dec_targets:0'].tolist())]
+        self.trg_utts = [utt[:k] for k, utt in zip(trg_lens, eval_dict[self.target_lens.name].tolist())]
 
         w_eval_func_vals = [w * f() if w != 0 else 0 for w, f in zip(c.eval_func_weights, self.eval_functions)]
         reward = sum(w_eval_func_vals)
