@@ -281,7 +281,7 @@ class E2E_property_decoding():
                                  for vocab_ids in self.dec_vocab_idss]
             return np.mean([row_acc_cov(row_dec, row_gold) for row_dec, row_gold in zip(rows_with_names_b, self.gold_rowss)])
 
-        eval_functions = [bleu_all, bleu_words, properties_match]
+        eval_functions = [bleu_all, bleu_words, properties_match, row_match]
         assert len(eval_functions) == len(c.eval_func_weights), str(len(eval_functions) == len(c.eval_func_weights))
         loss = tf.nn.seq2seq.sequence_loss(dec_logitss, targets, self.target_mask, softmax_loss_function=None)
         return loss, eval_functions
@@ -490,12 +490,12 @@ class E2E_property_decoding():
             if 'words:0' in step_inputs and 'turn_len:0' in step_inputs:
                 binputs, blens = step_inputs['words:0'], step_inputs['turn_len:0']
                 for b, (inp, d) in enumerate(zip(binputs, blens)):
-                    logger.info('inp %07d,%02d: %s', self.step, b, ' '.join([dstc2_set.words_vocab.get_w(idx) for idx in inp[:d]]))
+                    logger.info('inp %07d:%02d: %s', self.step, b, ' '.join([dstc2_set.words_vocab.get_w(idx) for idx in inp[:d]]))
             if 'decoder_outputs' in step_outputs:
                 dec_outs = [trim_decoded(utt, c.EOS_ID)[1] for utt in time2batch(step_outputs['decoder_outputs'])]
                 for bout in dec_outs:
-                    logger.info('dec %07d,%02d: %s', self.step, b, ' '.join([dstc2_set.get_target_surface(i)[1] for i in bout]))
+                    logger.info('dec %07d:%02d: %s', self.step, b, ' '.join([dstc2_set.get_target_surface(i)[1] for i in bout]))
             if labels_dt is not None and 'dec_targets:0' in labels_dt and 'target_lens:0' in labels_dt:
                 btargets, blens = labels_dt['dec_targets:0'], labels_dt['target_lens:0']
                 for b, (targets, d) in enumerate(zip(btargets, blens)):
-                    logger.info('trg %07d,%02d: %s', self.step, b, ' '.join([dstc2_set.get_target_surface(i)[1] for i in targets[0:d]]))
+                    logger.info('trg %07d:%02d: %s', self.step, b, ' '.join([dstc2_set.get_target_surface(i)[1] for i in targets[0:d]]))

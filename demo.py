@@ -143,7 +143,7 @@ if __name__ == "__main__":
     ap.add_argument('--model', default='E2E_property_decoding')
     ap.add_argument('--use_db_encoder', action='store_true', default=False)
     ap.add_argument('--just_db', action='store_true', default=False)
-    ap.add_argument('--eval_func_weights', type=float, nargs='*', default=[1.0, 1.0, 1.0])
+    ap.add_argument('--eval_func_weights', type=float, nargs='*', default=[0.0, 0.0, 0.0, 1.0])
 
     ap.add_argument('--max_gradient_norm', type=float, default=5.0)
     ap.add_argument('--reward_moving_avg_decay', type=float, default=0.99)
