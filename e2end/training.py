@@ -56,3 +56,6 @@ class EarlyStopper(object):
 
     def highest_reward(self):
         return max(self._heap) if self._heap else 0.0 
+
+    def reset(self):
+        self._heap.clear()

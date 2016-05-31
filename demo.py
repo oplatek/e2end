@@ -29,7 +29,7 @@ def training(sess, m, db, train, dev, config, train_writer, dev_writer):
         sess.run(m.vocabs_cum_start_idx_up.initializer, {m.vocabs_cum_start_initializer: list(train.word_vocabs_uplimit.values())})
         logger.info('DB data loaded in %0.2f s', load_db_data())
 
-    stopper, stopper_reward = EarlyStopper(c.nbest_models, c.not_change_limit, c.name), 0.0
+    stopper, stopper_reward, last_measure_loss = EarlyStopper(c.nbest_models, c.not_change_limit, c.name), 0.0, True
     tf.get_default_graph().finalize()
     try:
         dialog_idx = list(range(len(train)))
@@ -72,9 +72,13 @@ def training(sess, m, db, train, dev, config, train_writer, dev_writer):
                         m.log('train', train_writer, input_fd, tr_step_outputs, e, dstc2_set=train, labels_dt=input_fd)
 
                     if m.step % c.validate_every == 0:
-                        dev_ag_turn_reward, dev_avg_turn_loss = validate(sess, m, dev, e, dev_writer)
-                        # FIXME early stopping when switching from exent to RL
-                        stopper_reward = - dev_avg_turn_loss
+                        dev_avg_turn_reward, dev_avg_turn_loss = validate(sess, m, dev, e, dev_writer)
+                        stopper_reward = - dev_avg_turn_loss if m.step < c.reinforce_first_step else dev_avg_turn_reward
+                        if last_measure_loss and m.step > c.reinforce_first_step:
+                            logger.info('Resetting early stopping from loss to reward')
+                            stopper.saver.save(sess=sess, save_path='%s-XENT-final-%.4f-step-%07d' % (stopper.saver_prefix, dev_avg_turn_loss, m.step))
+                            stopper.clear() 
+                        last_measure_loss = m.step < c.reinforce_first_step
                         if not stopper.save_and_check(stopper_reward, m.step, sess):
                             raise RuntimeError('Training not improving on train set')
     finally:
