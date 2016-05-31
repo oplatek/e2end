@@ -55,7 +55,11 @@ class EarlyStopper(object):
         return self._not_improved <= self.not_change_limit
 
     def highest_reward(self):
-        return max(self._heap) if self._heap else 0.0 
+        ''' -666 is dummy value if there is no model logged'''
+        return max(self._heap) if self._heap else -666
 
     def reset(self):
         self._heap.clear()
+
+
+# FIXME implement batch normalization

@@ -48,7 +48,7 @@ class Dstc2DB:
 
     def _row_mask(self, col_val_dict):
         # See http://stackoverflow.com/questions/1962980/selecting-rows-from-a-numpy-ndarray
-        return np.logical_or.reduce([self.table[:, c] == v for c, v in col_val_dict.items()])
+        return np.logical_and.reduce([self.table[:, c] == v for c, v in col_val_dict.items()])
 
     def matching_rest_names(self, col_val_dict):
         match_rows = self.matching_rows(col_val_dict)

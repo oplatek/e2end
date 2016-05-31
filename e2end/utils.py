@@ -40,8 +40,9 @@ def time2batch(decoder_outputs):
 def trim_decoded(decoded_words, EOS_ID):
     try:
         idx = decoded_words.index(EOS_ID)
-        return idx, decoded_words[:idx]
+        return idx, decoded_words[:idx + 1]
     except ValueError:
+        logger.debug('no EOS_ID %d %s', EOS_ID, decoded_words)
         return len(decoded_words), decoded_words
 
 

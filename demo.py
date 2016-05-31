@@ -116,7 +116,7 @@ def validate(sess, m, dev, e, dev_writer):
                     else:
                         input_fd[feat.name] = dev.word_entities[i:i+1, t, k - 1, :]
 
-                if val_num % c.dev_log_sample_every == 0:
+                if val_num % c.dev_sample_every == 0:
                     dev_step_outputs = m.eval_step(sess, input_fd, log_output=True)
                     m.log('dev', dev_writer, input_fd, dev_step_outputs, e, dstc2_set=dev, labels_dt=input_fd)
                 else:
@@ -137,6 +137,7 @@ if __name__ == "__main__":
     ap.add_argument('--exp', default='exp')
     ap.add_argument('--validate_to_dir', default=None)
     ap.add_argument('--save_graph', action='store_true', default=False)
+    ap.add_argument('--tensorboard', action='store_true', default=False)
     ap.add_argument('--train_dir', default=None)
     ap.add_argument('--seed', type=int, default=123)
     ap.add_argument('--log_console_level', default="INFO")
@@ -149,7 +150,9 @@ if __name__ == "__main__":
     ap.add_argument('--model', default='E2E_property_decoding')
     ap.add_argument('--use_db_encoder', action='store_true', default=False)
     ap.add_argument('--just_db', action='store_true', default=False)
-    ap.add_argument('--eval_func_weights', type=float, nargs='*', default=[0.0, 0.0, 0.0, 1.0])
+    ap.add_argument('--eval_func_weights', type=float, nargs='*', default=[0.0, 0.0, 0.0, 0.5, 0.5], help='''
+            If row accuracy and row coverage has weights 0.5 and 0.5 then its sum is row F1 score. 
+            We should slightly prefer coverage, especially at the beggining of training.''')
 
     ap.add_argument('--encoder_size', type=int, default=12)
     ap.add_argument('--word_embed_size', type=int, default=11)
@@ -173,7 +176,7 @@ if __name__ == "__main__":
     ap.add_argument('--nbest_models', type=int, default=3)
     ap.add_argument('--not_change_limit', type=int, default=100)  # FIXME Be sure that we compare models from different epochs
     ap.add_argument('--sample_unk', type=int, default=0)
-    ap.add_argument('--dev_log_sample_every', type=int, default=10)
+    ap.add_argument('--dev_sample_every', type=int, default=10)
     ap.add_argument('--batch_size', type=int, default=1)
     ap.add_argument('--dev_batch_size', type=int, default=1)
 
@@ -219,7 +222,7 @@ if __name__ == "__main__":
     logger.info('Data loaded in %.2f s', preprocess_timer())
 
     logger.info('Saving config and vocabularies')
-    c.EOS_ID = train.words_vocab.get_i(train.EOS)
+    c.EOS_ID = int(train.get_target_surface_id('words', train.words_vocab, train.EOS))
     c.col_vocab_sizes = [len(vocab) for vocab in db.col_vocabs]
     c.max_turn_len = train.max_turn_len
     c.max_target_len = train.max_target_len
@@ -249,7 +252,7 @@ if __name__ == "__main__":
     logger.info('Settings saved to exp config: %s', c.config_filename)
 
     logger.info('Model %s compiled and loaded', c.model_name)
-    launch_tensorboard(c.train_dir, c.tensorboardlog)
+    c.tensorboard and launch_tensorboard(c.train_dir, c.tensorboardlog)
 
     with elapsed_timer() as sess_timer, tf.Session() as sess:
         train_writer = tf.train.SummaryWriter(c.train_dir + '/train', graph_def=sess.graph if c.save_graph else None)

@@ -8,6 +8,7 @@ from ..utils import elapsed_timer, sigmoid, time2batch, trim_decoded
 from .decoder import embedding_attention_decoder, word_db_embed_attention_decoder
 from .evaluation import tf_trg_word2vocab_id, tf_lengths2mask2d, get_bleus, row_acc_cov
 from tensorflow.python.training.moving_averages import assign_moving_average
+from itertools import zip_longest
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
@@ -264,24 +265,30 @@ class E2E_property_decoding():
         def bleu_words():
             '''computed from values stored at model dictionary after eval step'''
             # words have ids == c.num_cols
-            just_wordss_dec = [[w for w, i in zip(utt, ids) if i == c.num_cols] for utt, ids in zip(self.dec_utts, self.dec_vocab_idss)]
-            just_wordss_trg = [[w for w, i in zip(utt, ids) if i == c.num_cols] for utt, ids in zip(self.trg_utts, self.trg_vocab_idss)]
+            just_wordss_dec = [[w for w, i in zip(utt, ids) if i == (c.num_cols)] for utt, ids in zip(self.dec_utts, self.dec_vocab_idss)]
+            just_wordss_trg = [[w for w, i in zip(utt, ids) if i == (c.num_cols)] for utt, ids in zip(self.trg_utts, self.trg_vocab_idss)]
             return np.mean(get_bleus(just_wordss_trg, just_wordss_dec))
 
         def properties_match():
             '''computed from values stored at model dictionary after eval step'''
             # words are stored as last_column see dstc2.target_vocabs
-            utts_rewards = [np.mean([1 if dec_vid == trg_vid else 0 for dec_vid, trg_vid in zip(dec_vocab_ids, trg_vocab_ids)])
+            utts_rewards = [np.mean([1 if dec_vid == trg_vid else 0 for dec_vid, trg_vid in zip_longest(dec_vocab_ids, trg_vocab_ids)])
                             for dec_vocab_ids, trg_vocab_ids in zip(self.dec_vocab_idss, self.trg_vocab_idss)]
             return np.mean(utts_rewards)
 
         def row_match():
             '''Check if we output an restaurant name that it is compatible with the supervised answer'''
-            rows_with_names_b = [[wid - c.name_low for wid in vocab_ids if c.name_low <= wid < c.name_up]
-                                 for vocab_ids in self.dec_vocab_idss]
-            return np.mean([row_acc_cov(row_dec, row_gold) for row_dec, row_gold in zip(rows_with_names_b, self.gold_rowss_v)])
+            rows_with_names_b = [[wid - c.name_low for wid in utt if c.name_low <= wid < c.name_up]
+                                 for utt in self.dec_utts]
+            self.acc_cov = np.mean([row_acc_cov(row_dec, row_gold) for row_dec, row_gold in zip(rows_with_names_b, self.gold_rowss_v)], axis=1)
 
-        eval_functions = [bleu_all, bleu_words, properties_match, row_match]
+        def row_acc():
+            return self.acc_cov[0]
+
+        def row_cov():
+            return self.acc_cov[1]
+
+        eval_functions = [bleu_all, bleu_words, properties_match, row_acc, row_cov]
         assert len(eval_functions) == len(c.eval_func_weights), str(len(eval_functions) == len(c.eval_func_weights))
         loss = tf.nn.seq2seq.sequence_loss(dec_logitss, targets, self.target_mask, softmax_loss_function=None)
         return loss, eval_functions
@@ -487,7 +494,7 @@ class E2E_property_decoding():
         for k, v in step_outputs.items():
             if k == 'decoder_outputs' or k == 'summarize':
                 continue
-            logger.debug('  %s: %s' % (k, v))
+            logger.info('  %s: %s' % (k, v))
 
         if dstc2_set is not None:
             if 'words:0' in step_inputs and 'turn_len:0' in step_inputs:

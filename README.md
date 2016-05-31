@@ -3,6 +3,8 @@ End-to-End Neural Dialog
 
 Todo
 ----
+- speed- robust learning - batch normalization - http://stackoverflow.com/questions/33949786/how-could-i-use-batch-normalization-in-tensorflow
+    - more useful http://www.r2rt.com/posts/implementations/2016-03-29-implementing-batch-normalization-tensorflow/
 - use ipython notebook for TF graph caching
 - use partial run for RL https://github.com/tensorflow/tensorflow/issues/672
 - CF: zapnout ondruv spellchecker
