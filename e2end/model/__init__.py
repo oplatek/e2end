@@ -280,7 +280,8 @@ class E2E_property_decoding():
             '''Check if we output an restaurant name that it is compatible with the supervised answer'''
             rows_with_names_b = [[wid - c.name_low for wid in utt if c.name_low <= wid < c.name_up]
                                  for utt in self.dec_utts]
-            self.acc_cov = np.mean([row_acc_cov(row_dec, row_gold) for row_dec, row_gold in zip(rows_with_names_b, self.gold_rowss_v)], axis=1)
+            b_acc_cov = [row_acc_cov(row_dec, row_gold) for row_dec, row_gold in zip(rows_with_names_b, self.gold_rowss_v)]
+            self.acc_cov = np.mean(b_acc_cov, axis=0)
 
         def row_acc():
             row_match()
