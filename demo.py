@@ -98,8 +98,10 @@ def validate(sess, m, dev, e, dev_writer):
                             m.dropout_keep_prob: 1.0,
                             m.dropout_db_keep_prob: 1.0,
                             m.feed_previous: True,
-                             m.dec_targets.name: dev.turn_targets[i:i+1, t, :],
-                             m.target_lens.name: dev.turn_target_lens[i:i+1, t], }
+                            m.dec_targets.name: dev.turn_targets[i:i+1, t, :],
+                            m.target_lens.name: dev.turn_target_lens[i:i+1, t], 
+                            m.gold_rows: dev.gold_rows[i:i+1, t, :],
+                            m.gold_row_lens: dev.gold_row_lens[i:i+1, t], }
                 for k, feat in enumerate(m.feat_list):
                     if k == 0:
                         assert 'words' in feat.name, feat.name
@@ -160,13 +162,13 @@ if __name__ == "__main__":
 
     ap.add_argument('--reinforce_first_step', type=int, default=sys.maxsize)
     ap.add_argument('--reinforce_next_step', type=int, default=5000)
-    ap.add_argument('--epochs', type=int, default=20000)
-    ap.add_argument('--train_loss_every', type=int, default=1000)
+    ap.add_argument('--epochs', type=int, default=1000)
+    ap.add_argument('--train_sample_every', type=int, default=100)
+    ap.add_argument('--train_loss_every', type=int, default=100)
     ap.add_argument('--validate_every', type=int, default=500)
     ap.add_argument('--nbest_models', type=int, default=3)
     ap.add_argument('--not_change_limit', type=int, default=100)  # FIXME Be sure that we compare models from different epochs
     ap.add_argument('--sample_unk', type=int, default=0)
-    ap.add_argument('--train_sample_every', type=int, default=100)
     ap.add_argument('--dev_log_sample_every', type=int, default=10)
     ap.add_argument('--batch_size', type=int, default=1)
     ap.add_argument('--dev_batch_size', type=int, default=1)
