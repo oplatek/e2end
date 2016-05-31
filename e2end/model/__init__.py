@@ -283,9 +283,12 @@ class E2E_property_decoding():
             self.acc_cov = np.mean([row_acc_cov(row_dec, row_gold) for row_dec, row_gold in zip(rows_with_names_b, self.gold_rowss_v)], axis=1)
 
         def row_acc():
+            row_match()
+            self._row_acc_step = self.step  # just a heuristic check that row_acc is called before row_cov
             return self.acc_cov[0]
 
         def row_cov():
+            assert self._row_acc_step == self.step  # just a heuristic check that row_acc is called before row_cov
             return self.acc_cov[1]
 
         eval_functions = [bleu_all, bleu_words, properties_match, row_acc, row_cov]
