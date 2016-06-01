@@ -139,6 +139,7 @@ def parse_input():
 
     ap.add_argument('--model', default='E2E_property_decoding')
     ap.add_argument('--use_db_encoder', action='store_true', default=False)
+    ap.add_argument('--dec_reuse_emb', action='store_true', default=False)
     ap.add_argument('--row_targets', action='store_true', default=False)
     ap.add_argument('--eval_func_weights', type=float, nargs='*', default=[0.0, 0.0, 0.0, 0.5, 0.5], help='''
             If row accuracy and row coverage has weights 0.5 and 0.5 then its sum is row F1 score. 
@@ -171,6 +172,7 @@ def parse_input():
     ap.add_argument('--dev_batch_size', type=int, default=1)
 
     c = ap.parse_args()
+    assert (not c.use_db_encoder) or c.dec_reuse_emb  # implication : #FIXME see e2end/model/__init__.py the same assert
     conf_dict = load_configs(c.config)
     conf_dict.update(vars(c))
     update_config(c, conf_dict)
@@ -238,9 +240,10 @@ def parse_input():
         m = FastComp(c)
     else:
         raise KeyError('Unknown model')
-    logger.info('Model %s compiled and loaded', c.model_name)
 
     c.model_name = m.__class__.__name__
+    logger.info('Model %s compiled and loaded', c.model_name)
+
     save_config(c, c.config_filename)
     logger.info('Settings saved to exp config: %s', c.config_filename)
     return c, m, db, train, dev

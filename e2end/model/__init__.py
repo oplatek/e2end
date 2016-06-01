@@ -5,7 +5,7 @@ import numpy as np
 import logging, math
 from tensorflow.python.ops import control_flow_ops
 from ..utils import elapsed_timer, sigmoid, time2batch, trim_decoded
-from .decoder import embedding_attention_decoder, word_db_embed_attention_decoder
+from .decoder import word_db_embed_attention_decoder
 from .evaluation import tf_trg_word2vocab_id, tf_lengths2mask2d, get_bleus, row_acc_cov
 from tensorflow.python.training.moving_averages import assign_moving_average
 from itertools import zip_longest
@@ -108,13 +108,8 @@ class E2E_property_decoding():
         words_embeddings = feat_embeddings[0]
         return encoder_cell, words_hidden_feat, dialog_state_after_turn, embedded_words, words_embeddings
 
-    def _build_db(self, encoder_cell, words_hidden_feat, dialog_state_after_turn, words_embedded):
+    def _build_db(self, col_embeddings, encoder_cell, words_hidden_feat, dialog_state_after_turn, words_embedded):
         c = self.config
-        col_embeddings = [tf.get_variable('col_values_embedding{}'.format(i),
-                                          initializer=tf.random_uniform([col_vocab_size, c.col_emb_size],
-                                                                        -math.sqrt(3), math.sqrt(3))) for
-                          i, col_vocab_size in enumerate(c.col_vocab_sizes)]
-
         with elapsed_timer() as db_embed_timer:
             db_rows_embeddings = []
             for i in range(c.num_rows):
@@ -189,8 +184,22 @@ class E2E_property_decoding():
         logger.debug('db_embed.get_shape() %s', db_embed.get_shape())
         return db_embed, row_selected, col_embeddings
 
-    def _build_decoder(self, encoded_state, att_hidd_feat_list, col_embeddings, word_embeddings):
+    def _build_decoder(self, encoded_state, att_hidd_feat_list, words_embeddings, col_embeddings):
         c = self.config
+
+        total_input_vocab_size = sum(c.col_vocab_sizes + [c.num_words])
+        assert c.word_embed_size == c.col_emb_size, 'We are docoding one of entity.property from DB or word'
+        num_decoder_symbols = total_input_vocab_size
+        logger.debug('num_decoder_symbols %s', num_decoder_symbols)
+
+        if c.dec_reuse_emb:
+            assert c.word_embed_size == c.col_emb_size, 'need to stack embeddings on top of each other'
+            logger.debug('We are predicting one words from vocabs: db.column_vocab + [word_vocab]')
+            all_embeddings = tf.concat(0, col_embeddings + [words_embeddings])
+        else:
+            with tf.device("/cpu:0"):
+                all_embeddings = tf.get_variable("dec_embedding", [num_decoder_symbols, c.word_embed_size])
+
         logger.debug('The decoder uses special token GO_ID as first input. Adding to vocabulary.')
         self.GO_ID = c.num_words
         self.goid = tf.constant(self.GO_ID)
@@ -213,35 +222,21 @@ class E2E_property_decoding():
         attention_states = tf.concat(1, top_states)
         logger.debug('attention_states.get_shape() %s', attention_states.get_shape())
 
-        total_input_vocab_size = sum(c.col_vocab_sizes + [c.num_words])
         decoder_cell = tf.nn.rnn_cell.OutputProjectionWrapper(decoder_cell, total_input_vocab_size)
 
         encoded_state_size = encoded_state.get_shape().as_list()[1]
         assert encoded_state_size == decoder_cell.state_size, str(decoder_cell.state_size) + str(encoded_state_size)
         logger.debug('encoded_state.get_shape() %s', encoded_state.get_shape())
 
-        assert c.word_embed_size == c.col_emb_size, 'We are docoding one of entity.property from DB or word'
-        num_decoder_symbols = total_input_vocab_size
-        logger.debug('num_decoder_symbols %s', num_decoder_symbols)
-
         def decoder(feed_previous_bool, scope='att_decoder'):
             reuse = None if feed_previous_bool else True
             logger.debug('Since our decoder_inputs are in fact targets we feed targets without EOS')
             with tf.variable_scope(scope, reuse=reuse):
                 decoder_inputs = targets[:-1]
-                if c.use_db_encoder:
-                    outputs, state = word_db_embed_attention_decoder(col_embeddings, word_embeddings, c,
-                        decoder_inputs, encoded_state, attention_states,
-                        self.vocabs_cum_start_idx_low, self.vocabs_cum_start_idx_up,
-                        decoder_cell, num_heads=1,
-                        feed_previous=feed_previous_bool,
-                        update_embedding_for_previous=True,
-                        initial_state_attention=c.initial_state_attention)
-                else:
-                    outputs, state = embedding_attention_decoder(
-                        decoder_inputs, encoded_state, attention_states, decoder_cell,
-                        num_decoder_symbols, c.word_embed_size, num_heads=1,
-                        feed_previous=feed_previous_bool,
+                outputs, state = word_db_embed_attention_decoder(all_embeddings, decoder_inputs, 
+                        encoded_state, attention_states,
+                        decoder_cell, num_decoder_symbols,
+                        num_heads=1, feed_previous=feed_previous_bool,
                         update_embedding_for_previous=True,
                         initial_state_attention=c.initial_state_attention)
                 return outputs + [state]
@@ -371,20 +366,26 @@ class E2E_property_decoding():
             encoder_cell, words_hidden_feat, dialog_state_after_turn, words_embedded, words_embeddings = self._build_encoder()
             logger.debug('Initialization of encoder took  %.2f s.', inpt_timer())
 
+        assert (not c.use_db_encoder) or c.dec_reuse_emb  # implication 
+        col_embeddings = [
+                tf.get_variable('col_values_embedding{}'.format(i), 
+                        initializer=tf.random_uniform([col_vocab_size, c.col_emb_size], -math.sqrt(3), math.sqrt(3))) 
+                for i, col_vocab_size in enumerate(c.col_vocab_sizes)
+            ] if c.dec_reuse_emb else None
+
         with tf.variable_scope('db_encoder'), elapsed_timer() as db_timer:
             if c.use_db_encoder:
-                db_embed, row_selected, col_embeddings = self._build_db(encoder_cell, words_hidden_feat, dialog_state_after_turn, words_embedded)
+                db_embed, row_selected = self._build_db(encoder_cell, col_embeddings, words_hidden_feat, dialog_state_after_turn, words_embedded)
                 encoded_state = tf.concat(1, [dialog_state_after_turn, tf.squeeze(row_selected, [2]), db_embed])
                 att_hidd_feat_list = words_hidden_feat + [db_embed]
                 logger.info('\nInitialized db encoder in %.2f s\n', db_timer())
             else:
-                col_embeddings = None
                 encoded_state = dialog_state_after_turn
                 att_hidd_feat_list = words_hidden_feat
                 logger.info('\nUsing plain encoder decoder\n')
 
         with tf.variable_scope('decoder'), elapsed_timer() as dec_timer:
-            targets, self.target_mask, dec_logitss = self._build_decoder(encoded_state, att_hidd_feat_list, col_embeddings, words_embeddings)
+            targets, self.target_mask, dec_logitss = self._build_decoder(encoded_state, att_hidd_feat_list, words_embeddings, col_embeddings)
             self.dec_outputs = [tf.arg_max(dec_logits, 1) for dec_logits in dec_logitss]
             logger.debug('Building of the decoder took %.2f s.', dec_timer())
 
@@ -467,7 +468,6 @@ class E2E_property_decoding():
         trg_lens = eval_dict[self.target_lens.name]
         self.trg_vocab_idss = [ids[:k] for k, ids in zip(trg_lens, time2batch(trg_v_ids))]
         self.trg_utts = [utt[:k] for k, utt in zip(trg_lens, eval_dict[self.dec_targets.name].tolist())]
-        print('DEBUG', eval_dict[self.dec_targets.name])
 
         w_eval_func_vals = [w * f() if w != 0 else 0 for w, f in zip(c.eval_func_weights, self.eval_functions)]
         reward = sum(w_eval_func_vals)

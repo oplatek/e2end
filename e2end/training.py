@@ -57,7 +57,11 @@ class EarlyStopper(object):
 
     def highest_reward(self):
         ''' -666 is dummy value if there is no model logged'''
-        return max(self._heap) if self._heap else -666
+        if not self._heap:
+            return -666  # dummy value
+        else:
+            reward = heapq.nlargest(1, self._heap)[0][0]
+            return reward
 
     def reset(self):
         self._heap.clear()
@@ -175,5 +179,5 @@ def training(c, sess, m, db, train, dev, config, train_writer, dev_writer):
                             raise RuntimeError('Training not improving on train set')
     finally:
         logger.info('Training stopped after %7d steps and %7.2f epochs. See logs for %s', m.step, m.step / len(train), config.train_dir)
-        logger.info('Saving current state. Please wait!\nBest model has reward %7.2f form step %7d', stopper.highest_reward()[0], m.step)
+        logger.info('Saving current state. Please wait!\nBest model has reward %7.2f form step %7d', stopper.highest_reward(), m.step)
         stopper.saver.save(sess=sess, save_path='%s-FINAL-%.4f-step-%07d' % (stopper.saver_prefix, float(stopper_reward), m.step))

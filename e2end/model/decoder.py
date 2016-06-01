@@ -109,11 +109,10 @@ def embedding_attention_decoder(decoder_inputs, initial_state, attention_states,
         initial_state_attention=initial_state_attention)
 
 
-def word_db_embed_attention_decoder(col_embeddings, word_embeddings, c, 
-        decoder_inputs, initial_state, attention_states,
-        vocabs_cum_start_idx_low, vocabs_cum_start_idx_up,
-                                cell, num_heads=1,
-                                output_size=None, output_projection=None,
+def word_db_embed_attention_decoder(all_embeddings, decoder_inputs, 
+                                initial_state, attention_states,
+                                cell, num_symbols, 
+                                num_heads=1, output_size=None, output_projection=None,
                                 feed_previous=False,
                                 update_embedding_for_previous=True,
                                 dtype=tf.float32, scope=None,
@@ -122,8 +121,7 @@ def word_db_embed_attention_decoder(col_embeddings, word_embeddings, c,
     decodes either words or DB entities
 
     Args:
-    col_embeddings: DB entity embeddings which can this decoder produce
-    words_embeddings: Words embeddings another type of output which can this decoder generate
+    all_embeddings: embeddings from db and words which can this decoder generate
     decoder_inputs: A list of 1D batch-sized int32 Tensors (decoder inputs).
     initial_state: 2D Tensor [batch_size x cell.state_size].
     attention_states: 3D Tensor [batch_size x attn_length x attn_size].
@@ -166,14 +164,9 @@ def word_db_embed_attention_decoder(col_embeddings, word_embeddings, c,
     if output_size is None:
         output_size = cell.output_size
 
-    num_symbols = sum(c.col_vocab_sizes + [c.num_words])
     if output_projection is not None:
         proj_biases = tf.convert_to_tensor(output_projection[1], dtype=dtype)
         proj_biases.get_shape().assert_is_compatible_with([num_symbols])
-
-    assert c.word_embed_size == c.col_emb_size, 'need to stack embeddings on top of each other'
-    logger.debug('We are predicting one words from vocabs: db.column_vocab + [word_vocab]')
-    all_embeddings = tf.concat(0, col_embeddings + [word_embeddings])
 
     def embedding_lookup_w_db(symbol):
         return tf.nn.embedding_lookup(all_embeddings, symbol)
