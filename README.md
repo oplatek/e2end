@@ -3,6 +3,7 @@ End-to-End Neural Dialog
 
 Todo
 ----
+- speed - speed up development by using GPU on OSX - https://gist.github.com/ageitgey/819a51afa4613649bd18
 - use ipython notebook for TF graph caching
 - use partial run for RL https://github.com/tensorflow/tensorflow/issues/672
 - CF: zapnout ondruv spellchecker
