@@ -178,7 +178,7 @@ def training(c, sess, m, db, train, dev, config, train_writer, dev_writer):
                         if last_measure_loss and m.step > c.reinforce_first_step:
                             logger.info('Resetting early stopping from loss to reward')
                             stopper.saver.save(sess=sess, save_path='%s-XENT-final-%.4f-step-%07d' % (stopper.saver_prefix, dev_avg_turn_loss, m.step))
-                            stopper.clear() 
+                            stopper.reset() 
                         last_measure_loss = m.step < c.reinforce_first_step
                         stopper.save_and_check(stopper_reward, m.step, sess)
     except KeyboardInterrupt:
