@@ -3,7 +3,8 @@
 # FIXME implement batch normalization
 import tensorflow as tf
 import heapq, random, logging
-from e2end.utils import elapsed_timer
+from e2end.utils import elapsed_timer, shuffle, split
+import numpy as np
 
 
 logger = logging.getLogger(__name__)
@@ -74,32 +75,32 @@ class EarlyStopper(object):
 
 def validate(c, sess, m, dev, e, dev_writer):
     with elapsed_timer() as valid_timer:
-        dialog_idx = list(range(len(dev)))
-        logger.info('Selecting randomly %d from %d for validation', len(dialog_idx), len(dev))
+        logger.info('Sorting dev set according dialog lens.')
+        dialog_idx = [i for _, i in sorted(zip(dev.dial_lens.tolist(), range(len(dev))))]
         val_num, reward, loss = 0, 0.0, 0.0
         b = c.batch_size
-        for d, i in enumerate(dialog_idx):
+        for d, idxs in enumerate([dialog_idx[b: b+ c.batch_size] for b in range(0, len(dialog_idx), c.batch_size)]):
             logger.info('\nValidating dialog %04d', d)
-            for t in range(dev.dial_lens[i]):
+            for t in range(np.max(dev.dial_lens[idxs])):
                 logger.info('Validating example %07d', val_num)
-                input_fd = {m.turn_len.name: dev.turn_lens[i:i+b, t],
+                input_fd = {m.turn_len.name: dev.turn_lens[idxs, t],
                             m.is_first_turn: t == 0,
                             m.dropout_keep_prob: 1.0,
                             m.dropout_db_keep_prob: 1.0,
                             m.feed_previous: True,
-                            m.dec_targets.name: dev.turn_targets[i:i+b, t, :],
-                            m.target_lens.name: dev.turn_target_lens[i:i+b, t], 
-                            m.gold_rows: dev.gold_rows[i:i+b, t, :],
-                            m.gold_row_lens: dev.gold_row_lens[i:i+b, t], }
+                            m.dec_targets.name: dev.turn_targets[idxs, t, :],
+                            m.target_lens.name: dev.turn_target_lens[idxs, t], 
+                            m.gold_rows: dev.gold_rows[idxs, t, :],
+                            m.gold_row_lens: dev.gold_row_lens[idxs, t], }
                 for k, feat in enumerate(m.feat_list):
                     if k == 0:
                         assert 'words' in feat.name, feat.name
-                        input_fd[feat.name] = dev.dialogs[i:i+b, t, :]
+                        input_fd[feat.name] = dev.dialogs[idxs, t, :]
                     elif k == len(m.feat_list) - 1:
                         assert 'speakerId' in feat.name, feat.name
-                        input_fd[feat.name] = dev.word_speakers[i:i+b, t, :]
+                        input_fd[feat.name] = dev.word_speakers[idxs, t, :]
                     else:
-                        input_fd[feat.name] = dev.word_entities[i:i+b, t, k - 1, :]
+                        input_fd[feat.name] = dev.word_entities[idxs, t, k - 1, :]
 
                 if val_num % c.dev_sample_every == 0:
                     dev_step_outputs = m.eval_step(sess, input_fd, log_output=True)
@@ -133,34 +134,35 @@ def training(c, sess, m, db, train, dev, config, train_writer, dev_writer):
     stopper, stopper_reward, last_measure_loss = EarlyStopper(c.nbest_models, c.not_change_limit, c.name), 0.0, True
     tf.get_default_graph().finalize()
     try:
-        dialog_idx = list(range(len(train)))
-        logger.info('training set size: %d', len(dialog_idx))
-        b = c.batch_size
+        logger.info('Sorting train set according dialog lens.')
+        buckets = split([i for _, i in sorted(zip(train.dial_lens.tolist(), range(len(train))))], c.num_buckets)
         for e in range(c.epochs):
-            logger.debug('\n\nShuffling indexes for next epoch %d', e)
-            random.shuffle(dialog_idx)
-            for d, i in enumerate(dialog_idx):
-                logger.info('\nDialog %d', d)
-                for t in range(train.dial_lens[i]):
-                    input_fd = {m.turn_len.name: train.turn_lens[i:i+b, t],
+            logger.debug('\n\nShuffling only withing buckets: %d', e)
+            dialog_idx = [i for bucket in buckets for i in shuffle(bucket)]
+            for d, idxs in enumerate([dialog_idx[b: b+ c.batch_size] for b in range(0, len(dialog_idx), c.batch_size)]):
+                logger.info('\nDialog batch %d', d)
+
+                for t in range(np.max(train.dial_lens[idxs])):
+                    # *_lens are initialized for zeros -> from zeros zero mask
+                    input_fd = {m.turn_len.name: train.turn_lens[idxs, t],
                                 m.is_first_turn: t == 0,
                                 m.dropout_keep_prob: c.dropout,
                                 m.dropout_db_keep_prob: c.db_dropout,
                                 m.feed_previous: False,
-                                m.dec_targets.name: train.turn_targets[i:i+b, t, :],
-                                m.target_lens.name: train.turn_target_lens[i:i+b, t],
-                                m.gold_rows: train.gold_rows[i:i+b, t, :],
-                                m.gold_row_lens: train.gold_row_lens[i:i+b, t],
+                                m.dec_targets.name: train.turn_targets[idxs, t, :],
+                                m.target_lens.name: train.turn_target_lens[idxs, t],
+                                m.gold_rows: train.gold_rows[idxs, t, :],
+                                m.gold_row_lens: train.gold_row_lens[idxs, t],
                                 }
                     for k, feat in enumerate(m.feat_list):
                         if k == 0:
                             assert 'words' in feat.name, feat.name
-                            input_fd[feat.name] = train.dialogs[i:i+b, t, :]
+                            input_fd[feat.name] = train.dialogs[idxs, t, :]
                         elif k == len(m.feat_list) - 1:
                             assert 'speakerId' in feat.name, feat.name
-                            input_fd[feat.name] = train.word_speakers[i:i+b, t, :]
+                            input_fd[feat.name] = train.word_speakers[idxs, t, :]
                         else:
-                            input_fd[feat.name] = train.word_entities[i:i+b, t, k - 1, :]
+                            input_fd[feat.name] = train.word_entities[idxs, t, k - 1, :]
 
                     m.step_increment()
                     if m.step % c.train_loss_every == 0:

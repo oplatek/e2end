@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-from . import E2E_property_decoding
+from . import E2E_property_decodingBase 
 import tensorflow as tf
 import logging
 
@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 
 
-class FastComp(E2E_property_decoding):
+class FastComp(E2E_property_decodingBase):
     '''Dummy class just for debugging training loop - it compiles fast.'''
     def __init__(self, config):
         self.config = c = config

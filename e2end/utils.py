@@ -14,6 +14,17 @@ from e2end.dataset.dstc2 import Dstc2, Dstc2DB
 logger = logging.getLogger(__name__)
 
 
+def shuffle(l):
+    l2 = l[:]           #copy l into l2
+    random.shuffle(l2)  #shuffle l2
+    return l2           #return shuffled l2
+
+def split(a, n):
+    '''http://stackoverflow.com/questions/2130016/splitting-a-list-of-arbitrary-size-into-only-roughly-n-equal-parts'''
+    k, m = len(a) // n, len(a) % n
+    return (a[i * k + min(i, m):(i + 1) * k + min(i + 1, m)] for i in range(n))
+
+
 def sigmoid(x):
     x = np.array(x)
     return np.exp(-np.logaddexp(0, -x))
@@ -144,6 +155,7 @@ def parse_input():
     ap.add_argument('--eval_func_weights', type=float, nargs='*', default=[0.0, 0.0, 0.0, 0.5, 0.5], help='''
             If row accuracy and row coverage has weights 0.5 and 0.5 then its sum is row F1 score. 
             We should slightly prefer coverage, especially at the beggining of training.''')
+    ap.add_argument('--num_buckets', type=int, default=6)
 
     ap.add_argument('--encoder_size', type=int, default=12)
     ap.add_argument('--word_embed_size', type=int, default=11)

@@ -207,6 +207,10 @@ class Dstc2:
 
         logger.info('Max row len this set %d vs max_row_len %d', this_max_row, self._max_match_rows)
         self._dial_lens = np.array(dial_lens)
+
+        for i, l in enumerate(self._dial_lens):
+            self._dial_mask[i, :l] = np.ones((l,), dtype=np.int64)
+
         logger.info('\nLoaded dataset len(%s): %d', filename, len(self))
 
     # FIXME use it
