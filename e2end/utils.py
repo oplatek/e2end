@@ -170,6 +170,8 @@ def parse_input():
     ap.add_argument('--dev_sample_every', type=int, default=10)
     ap.add_argument('--batch_size', type=int, default=1)
     ap.add_argument('--dev_batch_size', type=int, default=1)
+    ap.add_argument('--save_dstc', default=None)
+    ap.add_argument('--load_dstc_dir', default=None)
 
     c = ap.parse_args()
     assert (not c.use_db_encoder) or c.dec_reuse_emb  # implication : #FIXME see e2end/model/__init__.py the same assert
@@ -201,16 +203,25 @@ def parse_input():
 
     with elapsed_timer() as preprocess_timer:
         db = Dstc2DB(c.db_file)
-        train = Dstc2(c.train_file, db, just_db=c.row_targets,
-                      sample_unk=c.sample_unk, first_n=c.train_first_n)
-        dev = Dstc2(c.dev_file, db,
-                just_db=train.just_db,
-                words_vocab=train.words_vocab,
-                max_turn_len=train.max_turn_len,
-                max_dial_len=train.max_dial_len,
-                max_target_len=train.max_target_len,
-                max_row_len=train.max_row_len,
-                first_n=c.dev_first_n)
+        if c.load_dstc_dir:
+            train = Dstc2.load(os.path.join(c.load_dstc_dir, 'train.pkl'))
+            dev = Dstc2.load(os.path.join(c.load_dstc_dir, 'dev.pkl'))
+        else:
+            train = Dstc2(c.train_file, db, just_db=c.row_targets,
+                          sample_unk=c.sample_unk, first_n=c.train_first_n)
+            dev = Dstc2(c.dev_file, db,
+                    just_db=train.just_db,
+                    words_vocab=train.words_vocab,
+                    max_turn_len=train.max_turn_len,
+                    max_dial_len=train.max_dial_len,
+                    max_target_len=train.max_target_len,
+                    max_row_len=train.max_row_len,
+                    first_n=c.dev_first_n)
+        if c.save_dstc:
+            train.save(os.path.join(c.save_dstc, 'train.pkl'))
+            dev.save(os.path.join(c.save_dstc, 'dev.pkl'))
+            logger.info('\nDstc saved to dir:\n%s\n\n', c.save_dstc)
+            sys.exit(0)
     logger.info('Data loaded in %.2f s', preprocess_timer())
 
     logger.info('Saving config and vocabularies')

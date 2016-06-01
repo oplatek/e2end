@@ -2,7 +2,7 @@ import json, logging
 import numpy as np
 from collections import OrderedDict
 import bisect
-
+import pickle
 from . import Vocabulary
 
 
@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 class Dstc2DB:
     def __init__(self, filename, first_n=None):
         logger.info('\nLoading DB %s', filename)
-        self._raw_data = raw_data = json.load(open(filename))[:first_n]
+        raw_data = json.load(open(filename))[:first_n]
         self._col_names = col_names = sorted(list(set([k for r in raw_data for k in r.keys()])))
         self._col_name_vocab = Vocabulary([], extra_words=col_names, unk=None)
         self._col_vocabs = col_vocabs = []
@@ -109,7 +109,7 @@ class Dstc2:
         self.hello_token = hello_token = 'Hello'  # Default user history for first turn
         self.EOS = EOS = 'EOS'   # Symbol which the decoder should produce as last one'
         assert isinstance(db, Dstc2DB), type(db)
-        self._raw_data = raw_data = json.load(open(filename))
+        raw_data = json.load(open(filename))
         self._first_n = min(first_n, len(raw_data)) if first_n else len(raw_data)
         dialogs = [[(turn[0] + ' ' + turn[1]).strip().split() for turn in dialog] for dialog in raw_data]
         self._speak_vocab = Vocabulary([], extra_words=['usr', 'sys'], unk=None)
@@ -379,6 +379,15 @@ class Dstc2:
     @property
     def max_row_len(self):
         return self._max_match_rows
+
+    @classmethod
+    def load(cls, filename):
+        with open(filename, 'rb') as r:
+            return pickle.load(r)
+
+    def save(self, filename):
+        with open(filename, 'wb') as w:
+            pickle.dump(self, w, protocol=2)
 
     def shuffle(self):
         raise NotImplementedError('I do not use it currently, I better raise the exception than update the list every time')
