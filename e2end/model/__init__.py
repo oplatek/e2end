@@ -467,6 +467,7 @@ class E2E_property_decoding():
         trg_lens = eval_dict[self.target_lens.name]
         self.trg_vocab_idss = [ids[:k] for k, ids in zip(trg_lens, time2batch(trg_v_ids))]
         self.trg_utts = [utt[:k] for k, utt in zip(trg_lens, eval_dict[self.dec_targets.name].tolist())]
+        print('DEBUG', eval_dict[self.dec_targets.name])
 
         w_eval_func_vals = [w * f() if w != 0 else 0 for w, f in zip(c.eval_func_weights, self.eval_functions)]
         reward = sum(w_eval_func_vals)
