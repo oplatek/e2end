@@ -435,7 +435,7 @@ class E2E_property_decodingBase():
                     logger.info('inp %07d:%02d: %s', self.step, b, ' '.join([dstc2_set.words_vocab.get_w(idx) for idx in inp[:d]]))
             if 'decoder_outputs' in step_outputs:
                 dec_outs = [trim_decoded(utt, c.EOS_ID)[1] for utt in time2batch(step_outputs['decoder_outputs'])]
-                for bout in dec_outs:
+                for b, bout in enumerate(dec_outs):
                     logger.info('dec %07d:%02d: %s', self.step, b, ' '.join([dstc2_set.get_target_surface(i)[1] for i in bout]))
             if labels_dt is not None and 'dec_targets:0' in labels_dt and 'target_lens:0' in labels_dt:
                 btargets, blens = labels_dt['dec_targets:0'], labels_dt['target_lens:0']

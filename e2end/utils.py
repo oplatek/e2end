@@ -168,7 +168,7 @@ def parse_input():
     ap.add_argument('--not_change_limit', type=int, default=100)  # FIXME Be sure that we compare models from different epochs
     ap.add_argument('--sample_unk', type=int, default=0)
     ap.add_argument('--dev_sample_every', type=int, default=10)
-    ap.add_argument('--batch_size', type=int, default=1)
+    ap.add_argument('--batch_size', type=int, default=10)
     ap.add_argument('--dev_batch_size', type=int, default=1)
     ap.add_argument('--save_dstc', default=None)
     ap.add_argument('--load_dstc_dir', default=None)

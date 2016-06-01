@@ -77,29 +77,29 @@ def validate(c, sess, m, dev, e, dev_writer):
         dialog_idx = list(range(len(dev)))
         logger.info('Selecting randomly %d from %d for validation', len(dialog_idx), len(dev))
         val_num, reward, loss = 0, 0.0, 0.0
+        b = c.batch_size
         for d, i in enumerate(dialog_idx):
             logger.info('\nValidating dialog %04d', d)
             for t in range(dev.dial_lens[i]):
                 logger.info('Validating example %07d', val_num)
-                assert c.batch_size == 1, 'FIXME not doing proper batching'
-                input_fd = {m.turn_len.name: dev.turn_lens[i:i+1, t],
+                input_fd = {m.turn_len.name: dev.turn_lens[i:i+b, t],
                             m.is_first_turn: t == 0,
                             m.dropout_keep_prob: 1.0,
                             m.dropout_db_keep_prob: 1.0,
                             m.feed_previous: True,
-                            m.dec_targets.name: dev.turn_targets[i:i+1, t, :],
-                            m.target_lens.name: dev.turn_target_lens[i:i+1, t], 
-                            m.gold_rows: dev.gold_rows[i:i+1, t, :],
-                            m.gold_row_lens: dev.gold_row_lens[i:i+1, t], }
+                            m.dec_targets.name: dev.turn_targets[i:i+b, t, :],
+                            m.target_lens.name: dev.turn_target_lens[i:i+b, t], 
+                            m.gold_rows: dev.gold_rows[i:i+b, t, :],
+                            m.gold_row_lens: dev.gold_row_lens[i:i+b, t], }
                 for k, feat in enumerate(m.feat_list):
                     if k == 0:
                         assert 'words' in feat.name, feat.name
-                        input_fd[feat.name] = dev.dialogs[i:i+1, t, :]
+                        input_fd[feat.name] = dev.dialogs[i:i+b, t, :]
                     elif k == len(m.feat_list) - 1:
                         assert 'speakerId' in feat.name, feat.name
-                        input_fd[feat.name] = dev.word_speakers[i:i+1, t, :]
+                        input_fd[feat.name] = dev.word_speakers[i:i+b, t, :]
                     else:
-                        input_fd[feat.name] = dev.word_entities[i:i+1, t, k - 1, :]
+                        input_fd[feat.name] = dev.word_entities[i:i+b, t, k - 1, :]
 
                 if val_num % c.dev_sample_every == 0:
                     dev_step_outputs = m.eval_step(sess, input_fd, log_output=True)
@@ -135,32 +135,32 @@ def training(c, sess, m, db, train, dev, config, train_writer, dev_writer):
     try:
         dialog_idx = list(range(len(train)))
         logger.info('training set size: %d', len(dialog_idx))
+        b = c.batch_size
         for e in range(c.epochs):
             logger.debug('\n\nShuffling indexes for next epoch %d', e)
             random.shuffle(dialog_idx)
             for d, i in enumerate(dialog_idx):
                 logger.info('\nDialog %d', d)
                 for t in range(train.dial_lens[i]):
-                    assert c.batch_size == 1, 'FIXME not doing proper batching'  # FIXME
-                    input_fd = {m.turn_len.name: train.turn_lens[i:i+1, t],
+                    input_fd = {m.turn_len.name: train.turn_lens[i:i+b, t],
                                 m.is_first_turn: t == 0,
                                 m.dropout_keep_prob: c.dropout,
                                 m.dropout_db_keep_prob: c.db_dropout,
                                 m.feed_previous: False,
-                                m.dec_targets.name: train.turn_targets[i:i+1, t, :],
-                                m.target_lens.name: train.turn_target_lens[i:i+1, t],
-                                m.gold_rows: train.gold_rows[i:i+1, t, :],
-                                m.gold_row_lens: train.gold_row_lens[i:i+1, t],
+                                m.dec_targets.name: train.turn_targets[i:i+b, t, :],
+                                m.target_lens.name: train.turn_target_lens[i:i+b, t],
+                                m.gold_rows: train.gold_rows[i:i+b, t, :],
+                                m.gold_row_lens: train.gold_row_lens[i:i+b, t],
                                 }
                     for k, feat in enumerate(m.feat_list):
                         if k == 0:
                             assert 'words' in feat.name, feat.name
-                            input_fd[feat.name] = train.dialogs[i:i+1, t, :]
+                            input_fd[feat.name] = train.dialogs[i:i+b, t, :]
                         elif k == len(m.feat_list) - 1:
                             assert 'speakerId' in feat.name, feat.name
-                            input_fd[feat.name] = train.word_speakers[i:i+1, t, :]
+                            input_fd[feat.name] = train.word_speakers[i:i+b, t, :]
                         else:
-                            input_fd[feat.name] = train.word_entities[i:i+1, t, k - 1, :]
+                            input_fd[feat.name] = train.word_entities[i:i+b, t, k - 1, :]
 
                     m.step_increment()
                     if m.step % c.train_loss_every == 0:
