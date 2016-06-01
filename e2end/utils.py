@@ -190,6 +190,7 @@ def parse_input():
     if c.validate_to_dir is not None:
         c.log_name = os.path.join(c.validate_to_dir, os.path.basename(c.log_name))
     setup_logging(c.log_name, console_level=c.log_console_level)
+    logger.info('Launched\n\n%s\n' % ' '.join(sys.argv))
     logger.debug('Computed also config values on the fly and merged values from config and command line arguments')
     logger.debug('Overwritten config values from command line and setup logging')
 
@@ -237,6 +238,7 @@ def parse_input():
         m = FastComp(c)
     else:
         raise KeyError('Unknown model')
+    logger.info('Model %s compiled and loaded', c.model_name)
 
     c.model_name = m.__class__.__name__
     save_config(c, c.config_filename)

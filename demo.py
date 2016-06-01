@@ -4,7 +4,7 @@
 Training script for end2end dialog training.
 
 """
-import logging
+import logging, sys
 import tensorflow as tf
 from e2end.utils import elapsed_timer, launch_tensorboard, parse_input
 from e2end.debug import setup_debug_hook
@@ -15,8 +15,8 @@ setup_debug_hook()
 
 
 if __name__ == "__main__":
+    logger.info('Launched\n\n%s\n' % ' '.join(sys.argv[1:]))
     c, m, db, train, dev = parse_input()
-    logger.info('Model %s compiled and loaded', c.model_name)
     c.tensorboard and launch_tensorboard(c.train_dir, c.tensorboardlog)
 
     with elapsed_timer() as sess_timer, tf.Session() as sess:
