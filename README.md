@@ -4,6 +4,9 @@ End-to-End Neural Dialog
 Todo
 ----
 - speed - speed up development by using GPU on OSX - https://gist.github.com/ageitgey/819a51afa4613649bd18
+- use "autoencoding objective" as regularization/prove that the model is able to remember necessary pieces
+- speed- robust learning - batch normalization - http://stackoverflow.com/questions/33949786/how-could-i-use-batch-normalization-in-tensorflow
+    - more useful http://www.r2rt.com/posts/implementations/2016-03-29-implementing-batch-normalization-tensorflow/
 - use ipython notebook for TF graph caching
 - use partial run for RL https://github.com/tensorflow/tensorflow/issues/672
 - CF: zapnout ondruv spellchecker

@@ -48,7 +48,7 @@ class Dstc2DB:
 
     def _row_mask(self, col_val_dict):
         # See http://stackoverflow.com/questions/1962980/selecting-rows-from-a-numpy-ndarray
-        return np.logical_or.reduce([self.table[:, c] == v for c, v in col_val_dict.items()])
+        return np.logical_and.reduce([self.table[:, c] == v for c, v in col_val_dict.items()])
 
     def matching_rest_names(self, col_val_dict):
         match_rows = self.matching_rows(col_val_dict)
@@ -144,7 +144,7 @@ class Dstc2:
 
         t = sorted([len(turn_target) for dialog_targets in targets for turn_target in dialog_targets])
         maxtarl, perc95t = t[-1], t[int(0.95 * len(s))]
-        self._max_target_len = mtarl = max_target_len or maxtarl
+        self._max_target_len = mtarl = (max_target_len or maxtarl)
 
         logger.info('Target len: %4d.\nMax target len %4d.\n95-percentil %4d.\n', maxtarl, mtarl, perc95t)
         self._turn_targets = ttarg = words_vocab.get_i(EOS) * np.ones((len(dialogs), mdl, mtarl), dtype=np.int64)
@@ -290,6 +290,9 @@ class Dstc2:
                     target_ids.append(self.get_target_surface_id('words', self._vocab, w))
                     vocab_names.append('words')
         assert len(vocab_names) == len(target_ids)
+        if self.just_db:
+            target_ids.append(self.get_target_surface_id('words', self._vocab, self.EOS))
+            vocab_names.append('words')
         return target_ids, vocab_names
 
     def get_target_surface_id(self, vocab_name, vocab, w):
