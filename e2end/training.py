@@ -17,6 +17,10 @@ class TrainingOps(object):
         self.train_op = self.optimizer.minimize(loss, global_step=self.global_step)
 
 
+class EarlyStopperException(Exception):
+    pass
+
+
 class EarlyStopper(object):
     '''Keeping track of n_best highest values in reward'''
     def __init__(self, track_n_best, not_change_limit, saver_prefix):
@@ -53,7 +57,8 @@ class EarlyStopper(object):
             else:
                 logger.info('Not keeping reward %f from step %d', reward, step)
                 self._not_improved += 1
-        return self._not_improved <= self.not_change_limit
+        if self._not_improved <= self.not_change_limit:
+            raise EarlyStopperException()
 
     def highest_reward(self):
         ''' -666 is dummy value if there is no model logged'''
@@ -175,8 +180,11 @@ def training(c, sess, m, db, train, dev, config, train_writer, dev_writer):
                             stopper.saver.save(sess=sess, save_path='%s-XENT-final-%.4f-step-%07d' % (stopper.saver_prefix, dev_avg_turn_loss, m.step))
                             stopper.clear() 
                         last_measure_loss = m.step < c.reinforce_first_step
-                        if not stopper.save_and_check(stopper_reward, m.step, sess):
-                            raise RuntimeError('Training not improving on train set')
+                        stopper.save_and_check(stopper_reward, m.step, sess)
+    except KeyboardInterrupt:
+        logger.info('\nTraining interrupted manually\n')
+    except EarlyStopperException:
+        logger.info('\nTraining not improving\n')
     finally:
         logger.info('Training stopped after %7d steps and %7.2f epochs. See logs for %s', m.step, m.step / len(train), config.train_dir)
         logger.info('Saving current state. Please wait!\nBest model has reward %7.2f form step %7d', stopper.highest_reward(), m.step)

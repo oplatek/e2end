@@ -137,7 +137,7 @@ def parse_input():
     ap.add_argument('--train_first_n', type=int, default=None)
     ap.add_argument('--dev_first_n', type=int, default=None)
 
-    ap.add_argument('--model', default='E2E_property_decoding')
+    ap.add_argument('--model', default='Simple')
     ap.add_argument('--use_db_encoder', action='store_true', default=False)
     ap.add_argument('--dec_reuse_emb', action='store_true', default=False)
     ap.add_argument('--row_targets', action='store_true', default=False)
@@ -243,9 +243,9 @@ def parse_input():
     for vocab, name in zip(db.col_vocabs, db.column_names):
         vocab.save(c.col_vocab_prefix + name)
 
-    if c.model == "E2E_property_decoding":
-        from e2end.model import E2E_property_decoding
-        m = E2E_property_decoding(c)
+    if c.model == "Simple":
+        from e2end.model.db import Simple 
+        m = Simple(c)
     elif c.model == "FastComp":
         from e2end.model.fast_compilation import FastComp
         m = FastComp(c)
