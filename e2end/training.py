@@ -10,14 +10,6 @@ import numpy as np
 logger = logging.getLogger(__name__)
 
 
-class TrainingOps(object):
-    def __init__(self, loss, optimizer):
-        self.optimizer = optimizer
-        self.global_step = tf.Variable(0, name='global_step', trainable=False)
-        tf.scalar_summary(loss.op.name + 'loss', loss)
-        self.train_op = self.optimizer.minimize(loss, global_step=self.global_step)
-
-
 class EarlyStopperException(Exception):
     pass
 
@@ -58,7 +50,7 @@ class EarlyStopper(object):
             else:
                 logger.info('Not keeping reward %f from step %d', reward, step)
                 self._not_improved += 1
-        if self._not_improved <= self.not_change_limit:
+        if self._not_improved >= self.not_change_limit:
             raise EarlyStopperException()
 
     def highest_reward(self):
@@ -80,6 +72,11 @@ def validate(c, sess, m, dev, e, dev_writer):
         val_num, reward, loss = 0, 0.0, 0.0
         b = c.batch_size
         for d, idxs in enumerate([dialog_idx[b: b+ c.batch_size] for b in range(0, len(dialog_idx), c.batch_size)]):
+            if len(idxs) < c.batch_size:
+                pad_len = c.batch_size - len(idxs)
+                idxs.extend(random.sample(dialog_idx, pad_len))
+                logger.info('last batch not alligned, sampling %d the padding', pad_len)
+
             logger.info('\nValidating dialog %04d', d)
             for t in range(np.max(dev.dial_lens[idxs])):
                 logger.info('Validating example %07d', val_num)
@@ -139,8 +136,12 @@ def training(c, sess, m, db, train, dev, config, train_writer, dev_writer):
         for e in range(c.epochs):
             logger.debug('\n\nShuffling only withing buckets: %d', e)
             dialog_idx = [i for bucket in buckets for i in shuffle(bucket)]
-            for d, idxs in enumerate([dialog_idx[b: b+ c.batch_size] for b in range(0, len(dialog_idx), c.batch_size)]):
+            for d, idxs in enumerate([dialog_idx[b: b + c.batch_size] for b in range(0, len(dialog_idx), c.batch_size)]):
                 logger.info('\nDialog batch %d', d)
+                if len(idxs) < c.batch_size:
+                    pad_len = c.batch_size - len(idxs)
+                    idxs.extend(random.sample(dialog_idx, pad_len))
+                    logger.info('last batch not alligned, sampling %d the padding', pad_len)
 
                 for t in range(np.max(train.dial_lens[idxs])):
                     # *_lens are initialized for zeros -> from zeros zero mask
