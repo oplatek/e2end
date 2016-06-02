@@ -17,7 +17,7 @@ setup_debug_hook()
 if __name__ == "__main__":
     logger.info('Launched\n\n%s\n' % ' '.join(sys.argv[1:]))
     c, m, db, train, dev = parse_input()
-    c.tensorboard and launch_tensorboard(c.train_dir, c.tensorboardlog)
+    not c.tensorboard or launch_tensorboard(c.train_dir, c.tensorboardlog)
 
     with elapsed_timer() as sess_timer, tf.Session() as sess:
         if c.validate_to_dir is not None:
