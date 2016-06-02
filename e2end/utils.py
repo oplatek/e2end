@@ -15,14 +15,15 @@ logger = logging.getLogger(__name__)
 
 
 def shuffle(l):
-    l2 = l[:]           #copy l into l2
-    random.shuffle(l2)  #shuffle l2
-    return l2           #return shuffled l2
+    l2 = l[:]
+    random.shuffle(l2)
+    return l2
+
 
 def split(a, n):
     '''http://stackoverflow.com/questions/2130016/splitting-a-list-of-arbitrary-size-into-only-roughly-n-equal-parts'''
     k, m = len(a) // n, len(a) % n
-    return (a[i * k + min(i, m):(i + 1) * k + min(i + 1, m)] for i in range(n))
+    return [a[i * k + min(i, m):(i + 1) * k + min(i + 1, m)] for i in range(n)]
 
 
 def sigmoid(x):

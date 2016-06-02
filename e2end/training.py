@@ -70,7 +70,6 @@ def validate(c, sess, m, dev, e, dev_writer):
         logger.info('Sorting dev set according dialog lens.')
         dialog_idx = [i for _, i in sorted(zip(dev.dial_lens.tolist(), range(len(dev))))]
         val_num, reward, loss = 0, 0.0, 0.0
-        b = c.batch_size
         for d, idxs in enumerate([dialog_idx[b: b+ c.batch_size] for b in range(0, len(dialog_idx), c.batch_size)]):
             if len(idxs) < c.batch_size:
                 pad_len = c.batch_size - len(idxs)
@@ -135,7 +134,8 @@ def training(c, sess, m, db, train, dev, config, train_writer, dev_writer):
         buckets = split([i for _, i in sorted(zip(train.dial_lens.tolist(), range(len(train))))], c.num_buckets)
         for e in range(c.epochs):
             logger.debug('\n\nShuffling only withing buckets: %d', e)
-            dialog_idx = [i for buckts in buckts for i in shuffle(bucket)]
+            dialog_idx = [i for bucket in buckets for i in shuffle(bucket)]
+            assert len(dialog_idx) == len(train), str((len(list(buckets)), len(dialog_idx)))
             for d, idxs in enumerate([dialog_idx[b: b + c.batch_size] for b in range(0, len(dialog_idx), c.batch_size)]):
                 logger.info('\nDialog batch %d', d)
                 if len(idxs) < c.batch_size:
