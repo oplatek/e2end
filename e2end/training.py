@@ -135,7 +135,7 @@ def training(c, sess, m, db, train, dev, config, train_writer, dev_writer):
         buckets = split([i for _, i in sorted(zip(train.dial_lens.tolist(), range(len(train))))], c.num_buckets)
         for e in range(c.epochs):
             logger.debug('\n\nShuffling only withing buckets: %d', e)
-            dialog_idx = [i for bucket in buckets for i in shuffle(bucket)]
+            dialog_idx = [i for buckts in buckts for i in shuffle(bucket)]
             for d, idxs in enumerate([dialog_idx[b: b + c.batch_size] for b in range(0, len(dialog_idx), c.batch_size)]):
                 logger.info('\nDialog batch %d', d)
                 if len(idxs) < c.batch_size:
