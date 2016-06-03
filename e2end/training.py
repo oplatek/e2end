@@ -81,8 +81,8 @@ def validate(c, sess, m, dev, e, dev_writer):
                 logger.info('Validating example %07d', val_num)
                 input_fd = {m.turn_len.name: dev.turn_lens[idxs, t],
                             m.is_first_turn: t == 0,
-                            m.dropout_keep_prob: 1.0,
-                            m.dropout_db_keep_prob: 1.0,
+                            m.enc_dropout_keep: 1.0,
+                            m.dec_dropout_keep: 1.0,
                             m.feed_previous: True,
                             m.dec_targets.name: dev.turn_targets[idxs, t, :],
                             m.target_lens.name: dev.turn_target_lens[idxs, t], 
@@ -147,8 +147,8 @@ def training(c, sess, m, db, train, dev, config, train_writer, dev_writer):
                     # *_lens are initialized for zeros -> from zeros zero mask
                     input_fd = {m.turn_len.name: train.turn_lens[idxs, t],
                                 m.is_first_turn: t == 0,
-                                m.dropout_keep_prob: c.dropout,
-                                m.dropout_db_keep_prob: c.db_dropout,
+                                m.enc_dropout_keep: c.enc_dropout_keep,
+                                m.dec_dropout_keep: c.dec_dropout_keep,
                                 m.feed_previous: False,
                                 m.dec_targets.name: train.turn_targets[idxs, t, :],
                                 m.target_lens.name: train.turn_target_lens[idxs, t],

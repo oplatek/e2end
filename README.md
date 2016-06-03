@@ -3,6 +3,9 @@ End-to-End Neural Dialog
 
 Todo
 ----
+- dynamic batch_size
+- todo how to emaluate args from commandline
+- how to backprogate through `tf.assign` and multiple turns? tf.run_partial?
 - speed - speed up development by using GPU on OSX - https://gist.github.com/ageitgey/819a51afa4613649bd18
 - use "autoencoding objective" as regularization/prove that the model is able to remember necessary pieces
 - speed- robust learning - batch normalization - http://stackoverflow.com/questions/33949786/how-could-i-use-batch-normalization-in-tensorflow
@@ -55,7 +58,6 @@ Todo
 - rnn.rnn(sequence_length=sequence_length) use mask for the not used outputs
 - investigate indexed_sliced
 - Mixer can be easily (thanks for Jindra's implementation) used on top of xent
-- better options loader combine with configs from Alex and https://pypi.python.org/pypi/json-cfg
 - implement batches first, than Batch normalization http://stackoverflow.com/questions/33949786/how-could-i-use-batch-normalization-in-tensorflow?rq=1
 - better tensorflow logging with `tf.merge_summary(tf.get_collection("summary_val"))`
 

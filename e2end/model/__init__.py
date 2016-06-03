@@ -8,7 +8,6 @@ from ..utils import elapsed_timer, sigmoid, time2batch, trim_decoded
 from .decoder import word_db_embed_attention_decoder
 from .evaluation import tf_trg_word2vocab_id, tf_lengths2mask2d, get_bleus, row_acc_cov
 from tensorflow.python.training.moving_averages import assign_moving_average
-from itertools import zip_longest
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
@@ -37,8 +36,8 @@ class E2E_property_decodingBase():
         self.speakerId = tf.placeholder(tf.int64, shape=(c.batch_size, c.max_turn_len), name='speakerId')
         feat_list.append(self.speakerId)
 
-        self.dropout_keep_prob = tf.placeholder('float', name='dropout_keep_prob')
-        self.dropout_db_keep_prob = tf.placeholder('float', name='dropout_db_keep_prob')
+        self.enc_dropout_keep = tf.placeholder('float', name='enc_dropout_keep')
+        self.dec_dropout_keep = tf.placeholder('float', name='dec_dropout_keep')
 
         self.is_first_turn = tf.placeholder(tf.bool, name='is_first_turn')
         self.feed_previous = tf.placeholder(tf.bool, name='feed_previous')
@@ -60,7 +59,7 @@ class E2E_property_decodingBase():
         logger.debug('For each word_i from i in 1..max_turn_len there is a list of features: word, belongs2slot1, belongs2slot2, ..., belongs2slotK')
         logger.debug('Feature list uses placelhoder.name to create feed dictionary')
 
-        esingle_cell = tf.nn.rnn_cell.GRUCell(c.encoder_size)
+        esingle_cell = tf.nn.rnn_cell.DropoutWrapper(tf.nn.rnn_cell.GRUCell(c.encoder_size), input_keep_prob=self.enc_dropout_keep, output_keep_prob=self.enc_dropout_keep)
         encoder_cell = tf.nn.rnn_cell.MultiRNNCell(
             [esingle_cell] * c.encoder_layers) if c.encoder_layers > 1 else esingle_cell
 
@@ -85,10 +84,9 @@ class E2E_property_decodingBase():
             features_j_word = []
             for i in range(len(self.feat_list)):
                 embedded = tf.nn.embedding_lookup(feat_embeddings[i], self.feat_list[i][:, j])  # FIXME it seems lookup support loading the embeddings at once for all feat_list
-                dropped_embedded = tf.nn.dropout(embedded, self.dropout_keep_prob)
                 if i == 0:  # words
-                    embedded_words.append(dropped_embedded)
-                features_j_word.append(dropped_embedded)
+                    embedded_words.append(embedded)
+                features_j_word.append(embedded)
             w_features = tf.concat(1, features_j_word)
             j or logger.debug('Word features has shape (batch, concat_embs) == %s', w_features.get_shape())
             embedded_inputs.append(w_features)
@@ -104,7 +102,7 @@ class E2E_property_decodingBase():
         words_hidden_feat, dialog_state_after_turn = tf.nn.rnn(encoder_cell, embedded_inputs,
                                                                initial_state=dialog_state_before_turn,
                                                                sequence_length=self.turn_len)
-        dialog_state_before_acc = tf.assign(dialog_state_before_acc, dialog_state_after_turn)
+        dialog_state_before_acc = tf.assign(dialog_state_before_acc, dialog_state_after_turn)  # How to backpropagate through it?
         words_embeddings = feat_embeddings[0]
         return encoder_cell, words_hidden_feat, dialog_state_after_turn, embedded_words, words_embeddings
 
@@ -137,15 +135,15 @@ class E2E_property_decodingBase():
         logger.debug('targets[0:1].get_shape(): %s, %s', targets[0].get_shape(), targets[1].get_shape())
 
         decoder_size = encoded_state.get_shape().as_list()[1]
-        dsingle_cell = tf.nn.rnn_cell.GRUCell(decoder_size)
+
+        dsingle_cell = tf.nn.rnn_cell.DropoutWrapper(tf.nn.rnn_cell.GRUCell(decoder_size), input_keep_prob=self.dec_dropout_keep)
         decoder_cell = tf.nn.rnn_cell.MultiRNNCell(
             [dsingle_cell] * c.decoder_layers) if c.decoder_layers > 1 else dsingle_cell
         target_mask = [tf.squeeze(m, [1]) for m in tf.split(1, c.max_target_len, tf_lengths2mask2d(self.target_lens, c.max_target_len))]
 
         # Take from tf/python/ops/seq2seq.py:706
         logger.debug('att_hidd_feat_list[0].get_shape() %s', att_hidd_feat_list[0].get_shape())
-        top_states = [tf.reshape(e, [-1, 1, c.encoder_size])
-                      for e in att_hidd_feat_list]  # FIXME should I change it different size that encoder_(feat) size?
+        top_states = [tf.reshape(e, [-1, 1, np.prod(e.get_shape().as_list()[1:])]) for e in att_hidd_feat_list]
         attention_states = tf.concat(1, top_states)
         logger.debug('attention_states.get_shape() %s', attention_states.get_shape())
 
@@ -193,10 +191,7 @@ class E2E_property_decodingBase():
 
         def properties_match():
             '''computed from values stored at model dictionary after eval step'''
-            # words are stored as last_column see dstc2.target_vocabs
-            utts_rewards = [np.mean([1 if dec_vid == trg_vid else 0 for dec_vid, trg_vid in zip_longest(dec_vocab_ids, trg_vocab_ids)])
-                            for dec_vocab_ids, trg_vocab_ids in zip(self.dec_vocab_idss, self.trg_vocab_idss)]
-            return np.mean(utts_rewards)
+            return np.mean(get_bleus(self.dec_vocab_idss, self.trg_vocab_idss))
 
         def row_match():
             '''Check if we output an restaurant name that it is compatible with the supervised answer'''
@@ -302,9 +297,23 @@ class E2E_property_decodingBase():
 
         with tf.variable_scope('db_encoder'), elapsed_timer() as db_timer:
             if c.use_db_encoder:
-                db_embed, row_selected = self._build_db(col_embeddings, encoder_cell, words_hidden_feat, dialog_state_after_turn, words_embedded)
-                encoded_state = tf.concat(1, [dialog_state_after_turn, tf.squeeze(row_selected, [2]), db_embed])
-                att_hidd_feat_list = words_hidden_feat + [db_embed]
+                db_embed_b = self._build_db(col_embeddings, encoder_cell, words_hidden_feat, dialog_state_after_turn, words_embedded)
+                last_layer_size = sum(db_embed_b.get_shape().as_list()[1:])
+
+                # use hidden_layer? tf.nn.softmax(tf.nn.xw_plus_b(last_layer, Out, b_out))
+                m_out = tf.get_variable('db_att_m_out', initializer=tf.random_normal([last_layer_size, 2]))
+                b_out = tf.get_variable('db_att_b_out', initializer=tf.random_normal([2]))
+                db_or_words_b = self.use_db_b = tf.nn.softmax(tf.nn.xw_plus_b(db_embed_b, m_out, b_out))
+                use_db_b = tf.expand_dims(db_or_words_b[:, 0], -1)
+                use_words_b = tf.expand_dims(db_or_words_b[:, 1], -1)
+                use_db_attention_img = tf.expand_dims(tf.expand_dims(db_or_words_b, -1), -1)
+                logger.debug('use_db_attention_img.get_shape(): %s', use_db_attention_img.get_shape())
+                tf.image_summary('use_db_attention', use_db_attention_img, max_images=c.batch_size)  # FIXME how to use it?
+                tf.scalar_summary('use_db_attention_value', use_db_b[0, 0])  # FIXME how to use it?
+
+                dialog_state_after_turn.set_shape([c.batch_size] + dialog_state_after_turn.get_shape().as_list()[1:])
+                encoded_state = tf.concat(1, [use_words_b * dialog_state_after_turn, use_db_b * db_embed_b])
+                att_hidd_feat_list = words_hidden_feat
                 logger.info('\nInitialized db encoder in %.2f s\n', db_timer())
             else:
                 encoded_state = dialog_state_after_turn
@@ -372,7 +381,7 @@ class E2E_property_decodingBase():
         c = self.config
         output_feed = self.dec_outputs + self.dec_vocab_idss_op + self.trg_vocab_idss_op + self.gold_rowss + [self.loss]
         if log_output:
-            output_feed.extend([self.summarize])
+            output_feed.extend([self.use_db_b, self.summarize])
 
         out_vals = sess.run(output_feed, eval_dict)
         x = len(self.dec_outputs)
@@ -381,8 +390,8 @@ class E2E_property_decodingBase():
         w = z + len(self.gold_rowss)
         decoder_outs, dec_v_ids, trg_v_ids, g_rowss_v = out_vals[0:x], out_vals[x: y], out_vals[y: z], out_vals[z: w]
         if log_output:
-            assert w + 2 == len(out_vals), str(w, len(out_vals))
-            loss_v, sum_v = out_vals[-2:]
+            assert w + 3 == len(out_vals), str(w, len(out_vals))
+            loss_v, db_att_v, sum_v = out_vals[-3:]
         else:
             assert w + 1 == len(out_vals), str(w, len(out_vals))
             loss_v = out_vals[-1:]
@@ -408,7 +417,7 @@ class E2E_property_decodingBase():
             sum_wfunc_val = tf.Summary(value=[tf.Summary.Value(tag=n, simple_value=v) for n, v in w_eval_f_vals_dict.items()])
             total_sum.MergeFrom(sum_wfunc_val)
             total_sum.MergeFromString(sum_v)
-            ret_dir.update({'summarize': total_sum, 'decoder_outputs': decoder_outs})
+            ret_dir.update({'summarize': total_sum, 'decoder_outputs': decoder_outs, 'db_att': db_att_v})
             ret_dir.update(w_eval_f_vals_dict)
 
         return ret_dir 

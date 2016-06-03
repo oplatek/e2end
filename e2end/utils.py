@@ -149,7 +149,7 @@ def parse_input():
     ap.add_argument('--train_first_n', type=int, default=None)
     ap.add_argument('--dev_first_n', type=int, default=None)
 
-    ap.add_argument('--model', default='Simple')
+    ap.add_argument('--model', default='SumRows')
     ap.add_argument('--use_db_encoder', action='store_true', default=False)
     ap.add_argument('--dec_reuse_emb', action='store_true', default=False)
     ap.add_argument('--row_targets', action='store_true', default=False)
@@ -164,8 +164,8 @@ def parse_input():
     ap.add_argument('--decoder_layers', type=int, default=1)
     ap.add_argument('--max_gradient_norm', type=float, default=5.0)
     ap.add_argument('--reward_moving_avg_decay', type=float, default=0.99)
-    ap.add_argument('--dropout', type=float, default=1.0)
-    ap.add_argument('--db_dropout', type=float, default=1.0)
+    ap.add_argument('--enc_dropout_keep', type=float, default=1.0)
+    ap.add_argument('--dec_dropout_keep', type=float, default=1.0)
     ap.add_argument('--feat_embed_size', type=int, default=2)
     ap.add_argument('--initial_state_attention', action='store_false', default=True, help='Used for resuming decoding from previous round, kind of what we are doing here')
     ap.add_argument('--learning_rate', type=float, default=0.0005)
@@ -256,9 +256,9 @@ def parse_input():
     for vocab, name in zip(db.col_vocabs, db.column_names):
         vocab.save(c.col_vocab_prefix + name)
 
-    if c.model == "Simple":
-        from e2end.model.db import Simple 
-        m = Simple(c)
+    if c.model == "SumRows":
+        from e2end.model.db import SumRows 
+        m = SumRows(c)
     elif c.model == "FastComp":
         from e2end.model.fast_compilation import FastComp
         m = FastComp(c)
