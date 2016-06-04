@@ -6,6 +6,95 @@ Todo
 - dynamic batch_size
 - todo how to emaluate args from commandline
 - how to backprogate through `tf.assign` and multiple turns? tf.run_partial?
+
+Fix RL update
+```
+Xent updates for step    2999
+Rein updates for step    3000
+Training stopped after    3000 steps and    1.33 epochs. See logs for log/2016-06-02-16-08-21.827-encdec-row_targets-db_encoder-reinforce_fs_3000-evalf_match_ent_plusbleu-batch10/2016-06-02-16-08-21.827encdec-row_targets-db_encoder-reinforce_fs_3000-evalf_match_ent_plusbleu-batch10_traindir
+Saving current state. Please wait!
+Best model has reward   -6.67 form step    3000
+Warning: Loading autoreload 2
+import numpy as np      # Done
+%matplotlib     # Done
+Using matplotlib backend: agg
+import matplotlib.pyplot as plt         # Done
+Traceback (most recent call last):
+  File "/ha/home/oplatek/virtualenv/tensorflow-gpu/lib/python3.4/site-packages/tensorflow/python/client/session.py", line 644, in _do_call
+    return fn(*args)
+  File "/ha/home/oplatek/virtualenv/tensorflow-gpu/lib/python3.4/site-packages/tensorflow/python/client/session.py", line 628, in _run_fn
+    session, None, feed_dict, fetch_list, target_list, None)
+tensorflow.python.pywrap_tensorflow.StatusNotOK: Invalid argument: Incompatible shapes: [10,1562] vs. [10]
+         [[Node: updates/reinforce_gradients/mul_1 = Mul[T=DT_FLOAT, _device="/job:localhost/replica:0/task:0/gpu:0"](updates/reinforce_gradients/mul, decoder/Squeeze_29)]]
+         [[Node: updates/reinforce_grads/gradients/decoder/cond/att_decoder/attention_decoder/loop_function_24/embedding_lookup_grad/Reshape_1/_42046 = _Recv[client_terminated=false, recv_device="/job:localhost/replica:0/task:0/cpu:0", send_device="/job:localhost/replica:0/task:0/gpu:0", send_device_incarnation=1, tensor_name="edge_264422_updates/reinforce_grads/gradients/decoder/cond/att_decoder/attention_decoder/loop_function_24/embedding_lookup_grad/Reshape_1", tensor_type=DT_INT64, _device="/job:localhost/replica:0/task:0/cpu:0"]()]]
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "./demo.py", line 31, in <module>
+    training(c, sess, m, db, train, dev, c, train_writer, dev_writer)
+  File "/ha/work/people/oplatek/e2end/e2end/training.py", line 170, in training
+    tr_step_outputs = m.train_step(sess, input_fd, log_output=True)
+  File "/ha/work/people/oplatek/e2end/e2end/model/__init__.py", line 368, in train_step
+    sess.run([self.mixer_optimizer, self.update_expected_reward], feed_dict=train_dict)
+  File "/ha/home/oplatek/virtualenv/tensorflow-gpu/lib/python3.4/site-packages/tensorflow/python/client/session.py", line 340, in run
+    run_metadata_ptr)
+  File "/ha/home/oplatek/virtualenv/tensorflow-gpu/lib/python3.4/site-packages/tensorflow/python/client/session.py", line 564, in _run
+    feed_dict_string, options, run_metadata)
+  File "/ha/home/oplatek/virtualenv/tensorflow-gpu/lib/python3.4/site-packages/tensorflow/python/client/session.py", line 637, in _do_run
+    target_list, options, run_metadata)
+  File "/ha/home/oplatek/virtualenv/tensorflow-gpu/lib/python3.4/site-packages/tensorflow/python/client/session.py", line 659, in _do_call
+    e.code)
+tensorflow.python.framework.errors.InvalidArgumentError: Incompatible shapes: [10,1562] vs. [10]
+         [[Node: updates/reinforce_gradients/mul_1 = Mul[T=DT_FLOAT, _device="/job:localhost/replica:0/task:0/gpu:0"](updates/reinforce_gradients/mul, decoder/Squeeze_29)]]
+         [[Node: updates/reinforce_grads/gradients/decoder/cond/att_decoder/attention_decoder/loop_function_24/embedding_lookup_grad/Reshape_1/_42046 = _Recv[client_terminated=false, recv_device="/job:localhost/replica:0/task:0/cpu:0", send_device="/job:localhost/replica:0/task:0/gpu:0", send_device_incarnation=1, tensor_name="edge_264422_updates/reinforce_grads/gradients/decoder/cond/att_decoder/attention_decoder/loop_function_24/embedding_lookup_grad/Reshape_1", tensor_type=DT_INT64, _device="/job:localhost/replica:0/task:0/cpu:0"]()]]
+Caused by op 'updates/reinforce_gradients/mul_1', defined at:
+  File "./demo.py", line 19, in <module>
+    c, m, db, train, dev = parse_input()
+  File "/ha/work/people/oplatek/e2end/e2end/utils.py", line 261, in parse_input
+    m = Simple(c)
+  File "/ha/work/people/oplatek/e2end/e2end/model/__init__.py", line 335, in __init__
+    self._build_mixer_updates(dec_logitss, targets)
+  File "/ha/work/people/oplatek/e2end/e2end/model/__init__.py", line 257, in _build_mixer_updates
+    indicator, self.target_mask)]
+  File "/ha/work/people/oplatek/e2end/e2end/model/__init__.py", line 256, in <listcomp>
+    for r, l, i, w in zip(expected_rewards, dec_logitss,
+  File "/ha/home/oplatek/virtualenv/tensorflow-gpu/lib/python3.4/site-packages/tensorflow/python/ops/math_ops.py", line 518, in binary_op_wrapper
+    return func(x, y, name=name)
+  File "/ha/home/oplatek/virtualenv/tensorflow-gpu/lib/python3.4/site-packages/tensorflow/python/ops/gen_math_ops.py", line 1039, in mul
+    return _op_def_lib.apply_op("Mul", x=x, y=y, name=name)
+  File "/ha/home/oplatek/virtualenv/tensorflow-gpu/lib/python3.4/site-packages/tensorflow/python/ops/op_def_library.py", line 655, in apply_op
+    op_def=op_def)
+  File "/ha/home/oplatek/virtualenv/tensorflow-gpu/lib/python3.4/site-packages/tensorflow/python/framework/ops.py", line 2154, in create_op
+    original_op=self._default_original_op, op_def=op_def)
+  File "/ha/home/oplatek/virtualenv/tensorflow-gpu/lib/python3.4/site-packages/tensorflow/python/framework/ops.py", line 1154, in __init__
+    self._traceback = _extract_stack()
+
+try pudb
+*** SyntaxError: invalid syntax
+Warning: Loading autoreload 2
+import numpy as np      # Done
+%matplotlib     # Done
+*** SyntaxError: invalid syntax
+import matplotlib.pyplot as plt         # Done
+> /ha/home/oplatek/virtualenv/tensorflow-gpu/lib/python3.4/site-packages/tensorflow/python/client/session.py(659)_do_call()
+    658       raise errors._make_specific_exception(node_def, op, error_message,
+--> 659                                             e.code)
+    660       # pylint: enable=protected-access
+
+ipdb>
+^CError in atexit._run_exitfuncs:
+Traceback (most recent call last):
+  File "/ha/home/oplatek/virtualenv/tensorflow-gpu/lib/python3.4/site-packages/IPython/core/interactiveshell.py", line 3229, in atexit_operations
+    self.reset(new_session=False)
+  File "/ha/home/oplatek/virtualenv/tensorflow-gpu/lib/python3.4/site-packages/IPython/core/interactiveshell.py", line 1239, in reset
+    self.displayhook.flush()
+  File "/ha/home/oplatek/virtualenv/tensorflow-gpu/lib/python3.4/site-packages/IPython/core/displayhook.py", line 295, in flush
+    gc.collect()
+KeyboardInterrupt
+```
+
+
 - speed - speed up development by using GPU on OSX - https://gist.github.com/ageitgey/819a51afa4613649bd18
 - use "autoencoding objective" as regularization/prove that the model is able to remember necessary pieces
 - speed- robust learning - batch normalization - http://stackoverflow.com/questions/33949786/how-could-i-use-batch-normalization-in-tensorflow
