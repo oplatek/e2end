@@ -119,7 +119,7 @@ def launch_tensorboard(logdir, stdout, stderr=subprocess.STDOUT, port=6006):
         stdout = open(stdout, 'w')
 
     try:
-        hostname = subprocess.check_output(['hostname', '-d'], universal_newlines=True).strip()
+        hostname = subprocess.check_output(['hostname', '-d'], universal_newlines=True, stderr=subprocess.DEVNULL).strip()
     except subprocess.CalledProcessError:
         hostname = 'unknown'
     logdir = os.path.abspath(logdir)
