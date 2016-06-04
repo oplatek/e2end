@@ -178,7 +178,7 @@ def training(c, sess, m, db, train, dev, config, train_writer, dev_writer):
                     if m.step % c.validate_every == 0:
                         dev_avg_turn_reward, dev_avg_turn_loss = validate(c, sess, m, dev, e, dev_writer)
                         stopper_reward = - dev_avg_turn_loss if m.step < c.reinforce_first_step else dev_avg_turn_reward
-                        if last_measure_loss and m.step > c.reinforce_first_step:
+                        if c.reinforce_first_step >= 0 and last_measure_loss and m.step >= c.reinforce_first_step:
                             logger.info('Resetting early stopping from loss to reward')
                             stopper.saver.save(sess=sess, save_path='%s-XENT-final-%.4f-step-%07d' % (stopper.saver_prefix, dev_avg_turn_loss, m.step))
                             stopper.reset() 

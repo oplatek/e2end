@@ -360,7 +360,7 @@ class E2E_property_decodingBase():
 
     def train_step(self, sess, train_dict, log_output=False):
         c = self.config
-        if self.step < c.reinforce_first_step:
+        if c.reinforce_first_step < 0 or self.step < c.reinforce_first_step:
             return self._xent_update(sess, train_dict, log_output)
 
         logger.info('Rein updates for step %7d', self.step)
