@@ -209,7 +209,10 @@ class E2E_property_decodingBase():
             assert self._row_acc_step == self.step  # just a heuristic check that row_acc is called before row_cov
             return self.acc_cov[1]
 
-        eval_functions = [bleu_all, bleu_words, properties_match, row_acc, row_cov]
+        def full_match():
+            return 1 if self.trg_utts == self.dec_utts else 0
+
+        eval_functions = [bleu_all, bleu_words, properties_match, row_acc, row_cov, full_match]
         assert len(eval_functions) == len(c.eval_func_weights), str(len(eval_functions) == len(c.eval_func_weights))
         loss = tf.nn.seq2seq.sequence_loss(dec_logitss, targets, self.target_mask, softmax_loss_function=None)
         return loss, eval_functions

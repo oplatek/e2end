@@ -106,8 +106,8 @@ def validate(c, sess, m, dev, e, dev_writer):
                 reward += dev_step_outputs['reward']
                 loss += dev_step_outputs['loss']
                 val_num += 1
-        avg_turn_reward = float(reward / val_num)
-        avg_turn_loss = float(loss / val_num)
+        avg_turn_reward = float(reward) / len(dev)
+        avg_turn_loss = float(loss) / len(dev)
 
         validate_set_measures = tf.Summary(value=[tf.Summary.Value(tag='valid_set_reward', simple_value=avg_turn_reward), tf.Summary.Value(tag='valid_set_loss', simple_value=avg_turn_loss)])
         dev_writer.add_summary(validate_set_measures, m.step)

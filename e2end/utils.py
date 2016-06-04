@@ -154,7 +154,7 @@ def parse_input():
     ap.add_argument('--dec_reuse_emb', action='store_true', default=False, help=' ')
     ap.add_argument('--row_targets', action='store_true', default=False, help=' ')
     ap.add_argument('--dst', action='store_true', default=False, help=' ')
-    ap.add_argument('--eval_func_weights', type=float, nargs='*', default=[0.0, 0.0, 0.0, 0.5, 0.5], help='''
+    ap.add_argument('--eval_func_weights', type=float, nargs='*', default=[0.0, 0.0, 0.0, 0.0, 0.0, 1.0], help='''
             If row accuracy and row coverage has weights 0.5 and 0.5 then its sum is row F1 score. 
             We should slightly prefer coverage, especially at the beggining of training.''')
     ap.add_argument('--num_buckets', type=int, default=6, help=' ')
