@@ -314,7 +314,7 @@ class E2E_property_decodingBase():
                 att_hidd_feat_list = [dialog_state_after_turn, db_proj]  # FIXME use attention for words and implement switch between words and db otherwise
             else:
                 encoded_state = dialog_state_after_turn
-                att_hidd_feat_list = []   # FIXME use attention for lower words and rows and implement switch between words and db otherwise 
+                att_hidd_feat_list = words_hidden_feat   # FIXME use attention for lower words and rows and implement switch between words and db otherwise 
                 logger.info('\nUsing plain encoder decoder\n')
             logger.info('\nInitialized db encoder in %.2f s\n', db_timer())
 

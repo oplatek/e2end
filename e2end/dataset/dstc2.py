@@ -89,21 +89,14 @@ class Dstc2DB:
         return [mask_ent(sentence, vocab) for vocab in self.col_vocabs]
 
 
-# FIXME implement caching, saving and loading
 class Dstc2:
-    '''
-    Produces input, output labels for each turn.
-    The input is the user AND system utterance from PREVIOUS turn.
-    The output is ONLY system utterance from CURRENT turn.
+    ''' TODO '''
 
-    As a result for example the first turn has empty input and output the first system response.
-    '''
-
-    def __init__(self, filename, db, just_db=False,
+    def __init__(self, filename, db, row_targets=False, dst=False,
             max_turn_len=None, max_dial_len=None, max_target_len=None, max_row_len=None,
             first_n=None, words_vocab=None, sample_unk=0):
-
-        self.just_db = just_db
+        assert not dst or (not row_targets), 'implication dst -> not row_targets'
+        self.row_targets = row_targets
         self.restaurant_name_vocab_id = db.get_col_idx('name')
         logger.info('\nLoading dataset %s', filename)
         self.hello_token = hello_token = 'Hello'  # Default user history for first turn
@@ -116,11 +109,13 @@ class Dstc2:
         usr, ss = self._speak_vocab.get_i('usr'), self._speak_vocab.get_i('sys')
         speakers = [[[ss] * len(turn[0].strip().split()) + [usr] * len(turn[1].strip().split()) for turn in dialog] for dialog in raw_data]
 
-        labels = [[turn[4] for turn in dialog] for dialog in raw_data]
-        assert len(dialogs) == len(labels), '%s vs %s' % (dialogs, labels)
-        targets = [[(turn[0]).strip().split() + [EOS] for turn in dialog] for dialog in raw_data]
+        if dst:  # dialog state tracking
+            logger.info('Hacking targets so it contains DST labels and are NOT shifted by on')
+            targets = [[(turn[4]).strip().split() + [EOS] for turn in dialog] for dialog in raw_data]
+        else:
+            targets = [[(turn[0]).strip().split() + [EOS] for turn in dialog] for dialog in raw_data]
 
-        dialogs, labels, speakers, targets = dialogs[:first_n], labels[:first_n], speakers[:first_n], targets[:first_n]
+        dialogs, speakers, targets = dialogs[:first_n], speakers[:first_n], targets[:first_n]
 
         self._vocab = words_vocab = words_vocab or Vocabulary([w for turns in dialogs for turn in turns for w in turn], extra_words=[hello_token, EOS], unk='UNK')
 
@@ -135,8 +130,9 @@ class Dstc2:
 
         entities = [[db.extract_entities(turn) for turn in d] for d in dialogs]  
 
-        logger.debug('Maximum decoder length increasing by 1, since targets are shifted by one')
-        mdl += 1
+        if not dst:
+            logger.debug('Maximum decoder length increasing by 1, since targets are shifted by one')
+            mdl += 1
         self._turn_lens_per_dialog = np.zeros((len(dialogs), mdl), dtype=np.int64)
         self._dials = np.zeros((len(dialogs), mdl, mtl), dtype=np.int64)
         self._word_ent = np.zeros((len(dialogs), mdl, len(db.column_names), mtl), dtype=np.int64)
@@ -166,8 +162,9 @@ class Dstc2:
         for i, (d, spkss, entss, dtargss) in enumerate(zip(dialogs, speakers, entities, targets)):
             assert len(d) == len(dtargss)
             dial_len = 0
-            logger.debug('Shifting targets and turns by one. First context is empty turn')
-            d, spkss, entss = [[hello_token]] + d, [[usr]] + spkss, [db.extract_entities([hello_token])] + entss
+            if not dst:
+                logger.debug('Shifting targets and turns by one. First context is empty turn')
+                d, spkss, entss = [[hello_token]] + d, [[usr]] + spkss, [db.extract_entities([hello_token])] + entss
             for j, (turn, spks, ents, targets) in enumerate(zip(d, spkss, entss, dtargss)):
                 sys_word_ids, vocab_names = self._extract_vocab_ids(targets)
 
@@ -202,14 +199,11 @@ class Dstc2:
             else:
                 logger.debug('Discarding whole dialog: %d', i)
 
-        self._max_match_rows = max_row_len or this_max_row
+        self._max_match_rows = max(1, max_row_len or this_max_row)
         self._match_rows_props = self._match_rows_props[:, :, :self._max_match_rows]
 
         logger.info('Max row len this set %d vs max_row_len %d', this_max_row, self._max_match_rows)
         self._dial_lens = np.array(dial_lens)
-
-        for i, l in enumerate(self._dial_lens):
-            self._dial_mask[i, :l] = np.ones((l,), dtype=np.int64)
 
         logger.info('\nLoaded dataset len(%s): %d', filename, len(self))
 
@@ -273,7 +267,7 @@ class Dstc2:
                         logger.debug('found an entity "%s" from column %s in target_words %s', ent, vocab_name, target_words)
                         skip_words_of_entity = len(e) - 1
                         w_id = self.get_target_surface_id(vocab_name, vocab, ent)
-                        if self.just_db:
+                        if self.row_targets:
                             if vocab_name == 'name':
                                 target_ids.append(w_id)
                                 vocab_names.append(vocab_name)
@@ -288,13 +282,13 @@ class Dstc2:
                     break
             if not w_found:
                 logger.debug('Target word "%s" treated as regular word', w)
-                if self.just_db:
+                if self.row_targets:
                     logger.debug('Skipping regular word in the targets')
                 else:
                     target_ids.append(self.get_target_surface_id('words', self._vocab, w))
                     vocab_names.append('words')
         assert len(vocab_names) == len(target_ids)
-        if self.just_db:
+        if self.row_targets:
             target_ids.append(self.get_target_surface_id('words', self._vocab, self.EOS))
             vocab_names.append('words')
         return target_ids, vocab_names

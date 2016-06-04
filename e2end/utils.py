@@ -153,6 +153,7 @@ def parse_input():
     ap.add_argument('--use_db_encoder', action='store_true', default=False, help=' ')
     ap.add_argument('--dec_reuse_emb', action='store_true', default=False, help=' ')
     ap.add_argument('--row_targets', action='store_true', default=False, help=' ')
+    ap.add_argument('--dst', action='store_true', default=False, help=' ')
     ap.add_argument('--eval_func_weights', type=float, nargs='*', default=[0.0, 0.0, 0.0, 0.5, 0.5], help='''
             If row accuracy and row coverage has weights 0.5 and 0.5 then its sum is row F1 score. 
             We should slightly prefer coverage, especially at the beggining of training.''')
@@ -220,10 +221,10 @@ def parse_input():
             train = Dstc2.load(os.path.join(c.load_dstc_dir, 'train.pkl'))
             dev = Dstc2.load(os.path.join(c.load_dstc_dir, 'dev.pkl'))
         else:
-            train = Dstc2(c.train_file, db, just_db=c.row_targets,
+            train = Dstc2(c.train_file, db, row_targets=c.row_targets, dst=c.dst,
                           sample_unk=c.sample_unk, first_n=c.train_first_n)
             dev = Dstc2(c.dev_file, db,
-                    just_db=train.just_db,
+                    row_targets=train.row_targets, dst=c.dst,
                     words_vocab=train.words_vocab,
                     max_turn_len=train.max_turn_len,
                     max_dial_len=train.max_dial_len,
