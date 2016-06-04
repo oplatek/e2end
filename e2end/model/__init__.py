@@ -109,7 +109,7 @@ class E2E_property_decodingBase():
     def _build_db(self, col_embeddings, encoder_cell, words_hidden_feat, dialog_state_after_turn, words_embedded):
         raise NotImplementedError("Todo: implement in derived class")
 
-    def _build_decoder(self, encoded_history, att_hidd_feat_list, words_embeddings, col_embeddings):
+    def _build_decoder(self, decoder_cell, encoded_history, att_hidd_feat_list, words_embeddings, col_embeddings):
         c = self.config
 
         encoded_history.set_shape([c.batch_size] + encoded_history.get_shape().as_list()[1:])
@@ -136,13 +136,7 @@ class E2E_property_decodingBase():
         targets = [tf.squeeze(di, [1]) for di in decoder_inputs2D]
         logger.debug('targets[0:1].get_shape(): %s, %s', targets[0].get_shape(), targets[1].get_shape())
 
-        decoder_size = encoded_history.get_shape().as_list()[1]
-        dsingle_cell = tf.nn.rnn_cell.DropoutWrapper(tf.nn.rnn_cell.GRUCell(decoder_size), input_keep_prob=self.dec_dropout_keep)
-        decoder_cell = tf.nn.rnn_cell.MultiRNNCell(
-            [dsingle_cell] * c.decoder_layers) if c.decoder_layers > 1 else dsingle_cell
         target_mask = [tf.squeeze(m, [1]) for m in tf.split(1, c.max_target_len, tf_lengths2mask2d(self.target_lens, c.max_target_len))]
-
-        assert decoder_size == decoder_cell.state_size, str(decoder_cell.state_size) + str(decoder_size)
         logger.debug('encoded_history.get_shape() %s', encoded_history.get_shape())
 
         # Take from tf/python/ops/seq2seq.py:706
@@ -322,7 +316,7 @@ class E2E_property_decodingBase():
             logger.info('\nInitialized db encoder in %.2f s\n', db_timer())
 
         with tf.variable_scope('decoder'), elapsed_timer() as dec_timer:
-            targets, self.target_mask, dec_logitss = self._build_decoder(encoded_state, att_hidd_feat_list, words_embeddings, col_embeddings)
+            targets, self.target_mask, dec_logitss = self._build_decoder(encoder_cell, encoded_state, att_hidd_feat_list, words_embeddings, col_embeddings)
             self.dec_outputs = [tf.arg_max(dec_logits, 1) for dec_logits in dec_logitss]
             logger.debug('Building of the decoder took %.2f s.', dec_timer())
 
