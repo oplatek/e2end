@@ -204,7 +204,7 @@ class E2E_property_decodingBase():
             return self.acc_cov[1]
 
         def full_match():
-            return 1 if self.trg_utts == self.dec_utts else 0
+            return sum([1.0 if g == d else 0.0 for g, d in zip(self.trg_utts, self.dec_utts)])
 
         eval_functions = [bleu_all, bleu_words, properties_match, row_acc, row_cov, full_match]
         assert len(eval_functions) == len(c.eval_func_weights), str(len(eval_functions) == len(c.eval_func_weights))
