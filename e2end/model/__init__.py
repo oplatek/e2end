@@ -109,8 +109,10 @@ class E2E_property_decodingBase():
     def _build_db(self, col_embeddings, encoder_cell, words_hidden_feat, dialog_state_after_turn, words_embedded):
         raise NotImplementedError("Todo: implement in derived class")
 
-    def _build_decoder(self, encoded_state, att_hidd_feat_list, words_embeddings, col_embeddings):
+    def _build_decoder(self, encoded_history, att_hidd_feat_list, words_embeddings, col_embeddings):
         c = self.config
+
+        encoded_history.set_shape([c.batch_size] + encoded_history.get_shape().as_list()[1:])
 
         total_input_vocab_size = sum(c.col_vocab_sizes + [c.num_words])
         assert c.word_embed_size == c.col_emb_size, 'We are docoding one of entity.property from DB or word'
@@ -134,12 +136,14 @@ class E2E_property_decodingBase():
         targets = [tf.squeeze(di, [1]) for di in decoder_inputs2D]
         logger.debug('targets[0:1].get_shape(): %s, %s', targets[0].get_shape(), targets[1].get_shape())
 
-        decoder_size = encoded_state.get_shape().as_list()[1]
-
+        decoder_size = encoded_history.get_shape().as_list()[1]
         dsingle_cell = tf.nn.rnn_cell.DropoutWrapper(tf.nn.rnn_cell.GRUCell(decoder_size), input_keep_prob=self.dec_dropout_keep)
         decoder_cell = tf.nn.rnn_cell.MultiRNNCell(
             [dsingle_cell] * c.decoder_layers) if c.decoder_layers > 1 else dsingle_cell
         target_mask = [tf.squeeze(m, [1]) for m in tf.split(1, c.max_target_len, tf_lengths2mask2d(self.target_lens, c.max_target_len))]
+
+        assert decoder_size == decoder_cell.state_size, str(decoder_cell.state_size) + str(decoder_size)
+        logger.debug('encoded_history.get_shape() %s', encoded_history.get_shape())
 
         # Take from tf/python/ops/seq2seq.py:706
         logger.debug('att_hidd_feat_list[0].get_shape() %s', att_hidd_feat_list[0].get_shape())
@@ -149,17 +153,13 @@ class E2E_property_decodingBase():
 
         decoder_cell = tf.nn.rnn_cell.OutputProjectionWrapper(decoder_cell, total_input_vocab_size)
 
-        encoded_state_size = encoded_state.get_shape().as_list()[1]
-        assert encoded_state_size == decoder_cell.state_size, str(decoder_cell.state_size) + str(encoded_state_size)
-        logger.debug('encoded_state.get_shape() %s', encoded_state.get_shape())
-
         def decoder(feed_previous_bool, scope='att_decoder'):
             reuse = None if feed_previous_bool else True
             logger.debug('Since our decoder_inputs are in fact targets we feed targets without EOS')
             with tf.variable_scope(scope, reuse=reuse):
                 decoder_inputs = targets[:-1]
                 outputs, state = word_db_embed_attention_decoder(all_embeddings, decoder_inputs, 
-                        encoded_state, attention_states,
+                        encoded_history, attention_states,
                         decoder_cell, num_decoder_symbols,
                         num_heads=1, feed_previous=feed_previous_bool,
                         update_embedding_for_previous=True,
@@ -298,27 +298,25 @@ class E2E_property_decodingBase():
         with tf.variable_scope('db_encoder'), elapsed_timer() as db_timer:
             if c.use_db_encoder:
                 db_embed_b = self._build_db(col_embeddings, encoder_cell, words_hidden_feat, dialog_state_after_turn, words_embedded)
-                last_layer_size = sum(db_embed_b.get_shape().as_list()[1:])
 
+                db_size = sum(db_embed_b.get_shape().as_list()[1:])
+                hist_size = sum(dialog_state_after_turn.get_shape().as_list()[1:])
                 # use hidden_layer? tf.nn.softmax(tf.nn.xw_plus_b(last_layer, Out, b_out))
-                m_out = tf.get_variable('db_att_m_out', initializer=tf.random_normal([last_layer_size, 2]))
-                b_out = tf.get_variable('db_att_b_out', initializer=tf.random_normal([2]))
-                db_or_words_b = self.use_db_b = tf.nn.softmax(tf.nn.xw_plus_b(db_embed_b, m_out, b_out))
-                use_db_b = tf.expand_dims(db_or_words_b[:, 0], -1)
-                use_words_b = tf.expand_dims(db_or_words_b[:, 1], -1)
-                use_db_attention_img = tf.expand_dims(tf.expand_dims(db_or_words_b, -1), -1)
-                logger.debug('use_db_attention_img.get_shape(): %s', use_db_attention_img.get_shape())
-                tf.image_summary('use_db_attention', use_db_attention_img, max_images=c.batch_size)  # FIXME how to use it?
-                tf.scalar_summary('use_db_attention_value', use_db_b[0, 0])  # FIXME how to use it?
+                m_out = tf.get_variable('db_att_m_out', initializer=tf.random_normal([db_size, hist_size]))
+                b_out = tf.get_variable('db_att_b_out', initializer=tf.random_normal([hist_size]))
+                db_proj = tf.nn.softmax(tf.nn.xw_plus_b(db_embed_b, m_out, b_out))
+                # use_db_attention_img = tf.expand_dims(tf.expand_dims(db_or_words_b, -1), -1)
+                # logger.debug('use_db_attention_img.get_shape(): %s', use_db_attention_img.get_shape())
+                # tf.image_summary('use_db_attention', use_db_attention_img, max_images=c.batch_size)  # FIXME how to use it?
+                # tf.scalar_summary('use_db_attention_value', use_db_b[0, 0])  # FIXME how to use it?
 
-                dialog_state_after_turn.set_shape([c.batch_size] + dialog_state_after_turn.get_shape().as_list()[1:])
-                encoded_state = tf.concat(1, [use_words_b * dialog_state_after_turn, use_db_b * db_embed_b])
-                att_hidd_feat_list = words_hidden_feat
-                logger.info('\nInitialized db encoder in %.2f s\n', db_timer())
+                encoded_state = db_proj + dialog_state_after_turn
+                att_hidd_feat_list = [dialog_state_after_turn, db_proj]  # FIXME use attention for words and implement switch between words and db otherwise
             else:
                 encoded_state = dialog_state_after_turn
-                att_hidd_feat_list = words_hidden_feat
+                att_hidd_feat_list = []   # FIXME use attention for lower words and rows and implement switch between words and db otherwise 
                 logger.info('\nUsing plain encoder decoder\n')
+            logger.info('\nInitialized db encoder in %.2f s\n', db_timer())
 
         with tf.variable_scope('decoder'), elapsed_timer() as dec_timer:
             targets, self.target_mask, dec_logitss = self._build_decoder(encoded_state, att_hidd_feat_list, words_embeddings, col_embeddings)
@@ -381,7 +379,8 @@ class E2E_property_decodingBase():
         c = self.config
         output_feed = self.dec_outputs + self.dec_vocab_idss_op + self.trg_vocab_idss_op + self.gold_rowss + [self.loss]
         if log_output:
-            output_feed.extend([self.use_db_b, self.summarize])
+            output_feed.extend([self.summarize])
+            # output_feed.extend([self.use_db_b, self.summarize])
 
         out_vals = sess.run(output_feed, eval_dict)
         x = len(self.dec_outputs)
@@ -390,8 +389,9 @@ class E2E_property_decodingBase():
         w = z + len(self.gold_rowss)
         decoder_outs, dec_v_ids, trg_v_ids, g_rowss_v = out_vals[0:x], out_vals[x: y], out_vals[y: z], out_vals[z: w]
         if log_output:
-            assert w + 3 == len(out_vals), str(w, len(out_vals))
-            loss_v, db_att_v, sum_v = out_vals[-3:]
+            assert w + 2 == len(out_vals), str(w, len(out_vals))
+            loss_v, sum_v = out_vals[-2:]
+            # loss_v, db_att_v, sum_v = out_vals[-3:]
         else:
             assert w + 1 == len(out_vals), str(w, len(out_vals))
             loss_v = out_vals[-1:]
@@ -417,7 +417,8 @@ class E2E_property_decodingBase():
             sum_wfunc_val = tf.Summary(value=[tf.Summary.Value(tag=n, simple_value=v) for n, v in w_eval_f_vals_dict.items()])
             total_sum.MergeFrom(sum_wfunc_val)
             total_sum.MergeFromString(sum_v)
-            ret_dir.update({'summarize': total_sum, 'decoder_outputs': decoder_outs, 'db_att': db_att_v})
+            ret_dir.update({'summarize': total_sum, 'decoder_outputs': decoder_outs})
+            # ret_dir.update({'summarize': total_sum, 'decoder_outputs': decoder_outs, 'db_att': db_att_v})
             ret_dir.update(w_eval_f_vals_dict)
 
         return ret_dir 
