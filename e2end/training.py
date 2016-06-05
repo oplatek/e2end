@@ -109,7 +109,7 @@ def validate(c, sess, m, dev, e, dev_writer):
                     aggreg_func[n] += dev_step_outputs[n]
                 val_num += 1
         for n, v in aggreg_func.items():
-            aggreg_func[n] = float(v) / len(dev)
+            aggreg_func[n] = float(v) / np.sum(dev.dial_lens)  # FIXME sum and divide -> AVERAGE may not be the wanted aggregations ops
         validate_set_measures = ([tf.Summary.Value(tag='valid_' + n, simple_value=v) for n, v in aggreg_func.items()])
         dev_writer.add_summary(tf.Summary(value=validate_set_measures), m.step)
         avg_turn_reward, avg_turn_loss = aggreg_func['reward'], aggreg_func['loss']
