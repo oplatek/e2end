@@ -94,7 +94,7 @@ class Dstc2:
 
     def __init__(self, filename, db, row_targets=False, dst=False,
             max_turn_len=None, max_dial_len=None, max_target_len=None, max_row_len=None,
-            first_n=None, words_vocab=None, sample_unk=0):
+            first_n=None, words_vocab=None, sample_unk=0, history_prefix=False):
         assert not dst or (not row_targets), 'implication dst -> not row_targets'
         self.row_targets = row_targets
         self.restaurant_name_vocab_id = db.get_col_idx('name')
@@ -116,6 +116,21 @@ class Dstc2:
             targets = [[(turn[0]).strip().split() + [EOS] for turn in dialog] for dialog in raw_data]
 
         dialogs, speakers, targets = dialogs[:first_n], speakers[:first_n], targets[:first_n]
+
+        self.history_prefix = history_prefix
+        if history_prefix:
+            hp_dialogs, hp_speakers = [], []
+            for d, s in zip(dialogs, speakers):
+                hp_d, hp_s = [], []
+                pd, ps = [], []
+                for turn_ws, turn_ss in zip(d, s):
+                    pd.extend(turn_ws)
+                    ps.extend(turn_ss)
+                    hp_d.append(list(pd))
+                    hp_s.append(list(ps))
+                hp_dialogs.append(hp_d)
+                hp_speakers.append(hp_s)
+            dialogs, speakers = hp_dialogs, hp_speakers
 
         self._vocab = words_vocab = words_vocab or Vocabulary([w for turns in dialogs for turn in turns for w in turn], extra_words=[hello_token, EOS], unk='UNK')
 

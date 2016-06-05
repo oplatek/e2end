@@ -148,6 +148,7 @@ def parse_input():
     ap.add_argument('--db_file', default='./data/dstc2/data.dstc2.db.json', help=' ')
     ap.add_argument('--train_first_n', type=int, default=None, help=' ')
     ap.add_argument('--dev_first_n', type=int, default=None, help=' ')
+    ap.add_argument('--history_prefix', action='store_true', default=False, help=' ')
 
     ap.add_argument('--model', default='SumRows', help=' ')
     ap.add_argument('--use_db_encoder', action='store_true', default=False, help=' ')
@@ -222,7 +223,8 @@ def parse_input():
             dev = Dstc2.load(os.path.join(c.load_dstc_dir, 'dev.pkl'))
         else:
             train = Dstc2(c.train_file, db, row_targets=c.row_targets, dst=c.dst,
-                          sample_unk=c.sample_unk, first_n=c.train_first_n)
+                          sample_unk=c.sample_unk, first_n=c.train_first_n, 
+                          history_prefix=c.history_prefix)
             dev = Dstc2(c.dev_file, db,
                     row_targets=train.row_targets, dst=c.dst,
                     words_vocab=train.words_vocab,
@@ -230,13 +232,14 @@ def parse_input():
                     max_dial_len=train.max_dial_len,
                     max_target_len=train.max_target_len,
                     max_row_len=train.max_row_len,
-                    first_n=c.dev_first_n)
+                    first_n=c.dev_first_n,
+                    history_prefix=train.history_prefix)
+        logger.info('Data loaded in %.2f s', preprocess_timer())
         if c.save_dstc:
             train.save(os.path.join(c.save_dstc, 'train.pkl'))
             dev.save(os.path.join(c.save_dstc, 'dev.pkl'))
             logger.info('\nDstc saved to dir:\n%s\n\n', c.save_dstc)
             sys.exit(0)
-    logger.info('Data loaded in %.2f s', preprocess_timer())
 
     logger.info('Saving config and vocabularies')
     c.EOS_ID = int(train.get_target_surface_id('words', train.words_vocab, train.EOS))

@@ -80,7 +80,7 @@ def validate(c, sess, m, dev, e, dev_writer):
             for t in range(np.max(dev.dial_lens[idxs])):
                 logger.info('Validating example %07d', val_num)
                 input_fd = {m.turn_len.name: dev.turn_lens[idxs, t],
-                            m.is_first_turn: t == 0,
+                            m.is_first_turn: c.history_prefix or t == 0,
                             m.enc_dropout_keep: 1.0,
                             m.dec_dropout_keep: 1.0,
                             m.feed_previous: True,
@@ -146,7 +146,7 @@ def training(c, sess, m, db, train, dev, config, train_writer, dev_writer):
                 for t in range(np.max(train.dial_lens[idxs])):
                     # *_lens are initialized for zeros -> from zeros zero mask
                     input_fd = {m.turn_len.name: train.turn_lens[idxs, t],
-                                m.is_first_turn: t == 0,
+                                m.is_first_turn: c.history_prefix or t == 0,
                                 m.enc_dropout_keep: c.enc_dropout_keep,
                                 m.dec_dropout_keep: c.dec_dropout_keep,
                                 m.feed_previous: False,
