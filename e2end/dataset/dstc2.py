@@ -397,13 +397,15 @@ class Dstc2:
             return pickle.load(r)
 
     def save(self, filename):
-        save_dir = os.path.basedir(filename)
-        os.makedirs(os.path.dirname(save_dir), exist_ok=True)
+        logger.debug('Saving Dstc2 to %s', filename)
+        save_dir = os.path.dirname(filename)
+        os.makedirs(save_dir, exist_ok=True)
         with open(filename, 'wb') as w:
             pickle.dump(self, w, protocol=2)
+        logger.info('Dstc2 saved to %s', filename)
 
     def shuffle(self):
-        raise NotImplementedError('I do not use it currently, I better raise the exception than update the list every time')
+        raise NotImplementedError('I do not use it currently. Better raise the exception than update the list every time')
         # rng_state = np.random.get_state()
         # np.random.shuffle(self._dialogs)
         # np.random.set_state(rng_state)
