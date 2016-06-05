@@ -69,7 +69,9 @@ def validate(c, sess, m, dev, e, dev_writer):
     with elapsed_timer() as valid_timer:
         logger.info('Sorting dev set according dialog lens.')
         dialog_idx = [i for _, i in sorted(zip(dev.dial_lens.tolist(), range(len(dev))))]
-        val_num, reward, loss = 0, 0.0, 0.0
+        val_num = 0
+        aggreg_func = dict([(fn, 0.0) for fn in [f.__name__ for w, f in zip(c.eval_func_weights, m.eval_functions) if w != 0] + ['loss', 'reward']])
+
         for d, idxs in enumerate([dialog_idx[b: b+ c.batch_size] for b in range(0, len(dialog_idx), c.batch_size)]):
             if len(idxs) < c.batch_size:
                 pad_len = c.batch_size - len(idxs)
@@ -103,14 +105,15 @@ def validate(c, sess, m, dev, e, dev_writer):
                     m.log('dev', dev_writer, input_fd, dev_step_outputs, e, dstc2_set=dev, labels_dt=input_fd)
                 else:
                     dev_step_outputs = m.eval_step(sess, input_fd)
-                reward += dev_step_outputs['reward']
-                loss += dev_step_outputs['loss']
+                for n in aggreg_func:
+                    aggreg_func[n] += dev_step_outputs[n]
                 val_num += 1
-        avg_turn_reward = float(reward) / len(dev)
-        avg_turn_loss = float(loss) / len(dev)
-
-        validate_set_measures = tf.Summary(value=[tf.Summary.Value(tag='valid_set_reward', simple_value=avg_turn_reward), tf.Summary.Value(tag='valid_set_loss', simple_value=avg_turn_loss)])
-        dev_writer.add_summary(validate_set_measures, m.step)
+        for n, v in aggreg_func.items():
+            aggreg_func[n] = float(v) / len(dev)
+        validate_set_measures = ([tf.Summary.Value(tag='valid_' + n, simple_value=v) for n, v in aggreg_func.items()])
+        dev_writer.add_summary(tf.Summary(value=validate_set_measures), m.step)
+        avg_turn_reward, avg_turn_loss = aggreg_func['reward'], aggreg_func['loss']
+        logger.info('Step %7d Dev measure dict: %s', m.step, aggreg_func)
         logger.info('Step %7d Dev reward: %.4f, loss: %.4f', m.step, avg_turn_reward, avg_turn_loss)
     logger.info('Validation finished after %.2f s', valid_timer())
     return avg_turn_reward, avg_turn_loss

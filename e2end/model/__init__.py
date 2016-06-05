@@ -206,7 +206,16 @@ class E2E_property_decodingBase():
         def full_match():
             return sum([1.0 if g == d else 0.0 for g, d in zip(self.trg_utts, self.dec_utts)])
 
-        eval_functions = [bleu_all, bleu_words, properties_match, row_acc, row_cov, full_match]
+        def first_match():
+            return sum([1.0 if len(g) > 0 and len(d) > 0 and g[0] == d[0] else 0.0 for g, d in zip(self.trg_utts, self.dec_utts)])
+
+        def second_match():
+            return sum([1.0 if len(g) > 1 and len(d) > 1 and g[1] == d[1] else 0.0 for g, d in zip(self.trg_utts, self.dec_utts)])
+
+        def third_match():
+            return sum([1.0 if len(g) > 2 and len(d) > 2 and g[2] == d[2] else 0.0 for g, d in zip(self.trg_utts, self.dec_utts)])
+
+        eval_functions = [bleu_all, bleu_words, properties_match, row_acc, row_cov, full_match, first_match, second_match, third_match]
         assert len(eval_functions) == len(c.eval_func_weights), str(len(eval_functions) == len(c.eval_func_weights))
         loss = tf.nn.seq2seq.sequence_loss(dec_logitss, targets, self.target_mask, softmax_loss_function=None)
         return loss, eval_functions
@@ -393,30 +402,29 @@ class E2E_property_decodingBase():
             assert w + 1 == len(out_vals), str(w, len(out_vals))
             loss_v = out_vals[-1:]
 
+        trg_lens = eval_dict[self.target_lens.name]
+        self.trg_vocab_idss = [ids[:k] for k, ids in zip(trg_lens, time2batch(trg_v_ids)) if k > 0]
+        self.trg_utts = [utt[:k] for k, utt in zip(trg_lens, eval_dict[self.dec_targets.name].tolist()) if k > 0]
+
         l_ds = [trim_decoded(utt, c.EOS_ID) for utt in time2batch(decoder_outs)]
         utt_lens, self.dec_utts = zip(*l_ds)
-        self.dec_vocab_idss = [ids[:k] for k, ids in zip(utt_lens, time2batch(dec_v_ids))]
+        self.dec_vocab_idss = [ids[:k] for tk, k, ids in zip(trg_lens, utt_lens, time2batch(dec_v_ids)) if tk > 0]
         row_len = eval_dict[self.gold_row_lens]
-        self.gold_rowss_v = [r[:d] for r, d in zip(time2batch(g_rowss_v), row_len.tolist())]
-        trg_lens = eval_dict[self.target_lens.name]
-        self.trg_vocab_idss = [ids[:k] for k, ids in zip(trg_lens, time2batch(trg_v_ids))]
-        self.trg_utts = [utt[:k] for k, utt in zip(trg_lens, eval_dict[self.dec_targets.name].tolist())]
+        self.gold_rowss_v = [r[:d] for tk, r, d in zip(trg_lens, time2batch(g_rowss_v), row_len.tolist()) if tk > 0]
 
-        w_eval_func_vals = [w * f() if w != 0 else 0 for w, f in zip(c.eval_func_weights, self.eval_functions)]
-        reward = sum(w_eval_func_vals)
+        w_eval_f_vals_dict = dict([(f.__name__, w * f()) for w, f in zip(c.eval_func_weights, self.eval_functions) if w != 0])
+        reward = sum(w_eval_f_vals_dict.values())
 
         ret_dir = {'loss': loss_v, 'reward': reward}
-        if log_output:
-            func_names=[f.__name__ for f in self.eval_functions]
-            w_eval_f_vals_dict = dict(zip(func_names, w_eval_func_vals))
+        ret_dir.update(w_eval_f_vals_dict)
 
+        if log_output:
             total_sum = tf.Summary(value=[tf.Summary.Value(tag='reward', simple_value=reward)])
             sum_wfunc_val = tf.Summary(value=[tf.Summary.Value(tag=n, simple_value=v) for n, v in w_eval_f_vals_dict.items()])
             total_sum.MergeFrom(sum_wfunc_val)
             total_sum.MergeFromString(sum_v)
             ret_dir.update({'summarize': total_sum, 'decoder_outputs': decoder_outs})
             # ret_dir.update({'summarize': total_sum, 'decoder_outputs': decoder_outs, 'db_att': db_att_v})
-            ret_dir.update(w_eval_f_vals_dict)
 
         return ret_dir 
 
