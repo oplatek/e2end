@@ -1,8 +1,6 @@
-import json, logging
+import json, logging, os, pickle, bisect
 import numpy as np
 from collections import OrderedDict
-import bisect
-import pickle
 from . import Vocabulary
 
 
@@ -399,6 +397,8 @@ class Dstc2:
             return pickle.load(r)
 
     def save(self, filename):
+        save_dir = os.path.basedir(filename)
+        os.makedirs(os.path.dirname(save_dir), exist_ok=True)
         with open(filename, 'wb') as w:
             pickle.dump(self, w, protocol=2)
 
