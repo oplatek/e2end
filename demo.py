@@ -19,6 +19,8 @@ if __name__ == "__main__":
     c, m, db, train, dev = parse_input()
     not c.tensorboard or launch_tensorboard(c.train_dir, c.tensorboardlog)
 
+    # config = tf.ConfigProto(inter_op_paralelism_threads=4,
+    #                 intra_op_paralelism_threads=4)  # FIXME interop parallelization on cluster
     with elapsed_timer() as sess_timer, tf.Session() as sess:
         if c.validate_to_dir is not None:
             logger.info('Just launching validation and NO training')

@@ -141,6 +141,8 @@ KeyboardInterrupt
 
 
 - parallelization `NUM_THREADS = 20;  sess = tf.Session(config=tf.ConfigProto(intra_op_parallelism_threads=NUM_THREADS))`
+    - limit it for cluster - how to use one setting for cluster and for GPU?
+    - limit parallel for cluster: `config = tf.ConfigProto(inter_op_paralelism_threads=4, intra_op_paralelism_threads=4)`
 - data loading and model - do not recompute encoding - compute encoding for all prefixes in one dialog in one run
 - debugging tools
     - visualize attentions - e.g. via https://www.youtube.com/watch?v=VcoVEvGEmFM
