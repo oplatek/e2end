@@ -181,7 +181,7 @@ def parse_input():
     ap.add_argument('--train_loss_every', type=int, default=100, help=' ')
     ap.add_argument('--validate_every', type=int, default=2264, help=' ')
     ap.add_argument('--nbest_models', type=int, default=3, help=' ')
-    ap.add_argument('--not_change_limit', type=int, default=10, help='Currently used both for RL and Xent updates')
+    ap.add_argument('--not_change_limit', type=int, default=4, help='Currently used both for RL and Xent updates')
     ap.add_argument('--sample_unk', type=int, default=0, help=' ')
     ap.add_argument('--dev_sample_every', type=int, default=10, help=' ')
     ap.add_argument('--batch_size', type=int, default=10, help=' ')
