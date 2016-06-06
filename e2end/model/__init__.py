@@ -305,8 +305,8 @@ class E2E_property_decodingBase():
             if c.use_db_encoder:
                 db_embed_b = self._build_db(col_embeddings, encoder_cell, words_hidden_feat, dialog_state_after_turn, words_embedded)
 
-                db_size = sum(db_embed_b.get_shape().as_list()[1:])
-                hist_size = sum(dialog_state_after_turn.get_shape().as_list()[1:])
+                db_size = np.prod(db_embed_b.get_shape().as_list()[1:])
+                hist_size = np.prod(dialog_state_after_turn.get_shape().as_list()[1:])
                 # use hidden_layer? tf.nn.softmax(tf.nn.xw_plus_b(last_layer, Out, b_out))
                 m_out = tf.get_variable('db_att_m_out', initializer=tf.random_normal([db_size, hist_size]))
                 b_out = tf.get_variable('db_att_b_out', initializer=tf.random_normal([hist_size]))

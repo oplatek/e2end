@@ -267,6 +267,9 @@ def parse_input():
     elif c.model == "FastComp":
         from e2end.model.fast_compilation import FastComp
         m = FastComp(c)
+    elif c.model == "DstIndep":
+        from e2end.model.dst import DstIndep
+        m = DstIndep(c)
     else:
         raise KeyError('Unknown model')
 
