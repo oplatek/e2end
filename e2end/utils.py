@@ -31,9 +31,13 @@ def sigmoid(x):
     return np.exp(-np.logaddexp(0, -x))
 
 
-def update_config(c, d):
-    for k, v in d.items():
-        setattr(c, k, v)
+def update_config(ap, c, d):
+    for k in d:
+        if hasattr(c,k) and ap.get_default(k) == getattr(c, k):
+            logger.debug('Using config value for %s', k)
+            setattr(c, k, d[k])
+        else:
+            logger.debug('Discarding the config value %s for %s', d[k], k)
 
 
 def load_configs(configs):
@@ -195,8 +199,8 @@ def parse_input():
     c = ap.parse_args()
     assert (not c.use_db_encoder) or c.dec_reuse_emb  # implication : #FIXME see e2end/model/__init__.py the same assert
     conf_dict = load_configs(c.config)
-    conf_dict.update(vars(c))
-    update_config(c, conf_dict)
+    update_config(ap, c, conf_dict)
+
 
     c.name = 'log/%(u)s-%(n)s/%(u)s%(n)s' % {'u': datetime.utcnow().strftime('%Y-%m-%d-%H-%M-%S.%f')[:-3], 'n': c.exp}
     c.train_dir = c.train_dir or c.name + '_traindir'

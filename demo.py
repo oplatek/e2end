@@ -27,7 +27,7 @@ if __name__ == "__main__":
         config = tf.ConfigProto()
     with elapsed_timer() as sess_timer, tf.Session(config=config) as sess:
         if c.validate_to_dir is not None:
-            logger.warning('Just launching validation and NO training')
+            logger.warning('\n\nJust launching validation and NO training\n\n')
             assert c.load_model is not None, 'You should load the trained model'
             assert len(c.config) > 0, 'You should have set the default parameter to the training parameters by loading training config but config list is empty: %s' % str(c.config)
             logger.warning('Change the dev_file to the file for validation')
