@@ -21,8 +21,8 @@ if __name__ == "__main__":
 
     logger.warning('Reducing parallel opts for cluster! May degrade performance for GPU!')
     if c.cluster:
-        config = tf.ConfigProto(inter_op_paralelism_threads=4,
-                        intra_op_paralelism_threads=4) 
+        config = tf.ConfigProto(inter_op_parallelism_threads=4,
+                        intra_op_parallelism_threads=4) 
     else:
         config = tf.ConfigProto()
     with elapsed_timer() as sess_timer, tf.Session(config=config) as sess:
