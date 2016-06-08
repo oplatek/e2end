@@ -1,5 +1,12 @@
 End-to-End Neural Dialog
 
+Howto
+-----
+
+### Evaluate
+- create validation dir with test set instead of dev set called e.g. `dstc2_test` and run
+` ./demo.py  --load_dstc_dir dstc2_test --validate_to_dir test_valid --config path_to_training_config.json --load_model path_to_saved_model` 
+
 
 Todo
 ----

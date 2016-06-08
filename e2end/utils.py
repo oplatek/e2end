@@ -39,8 +39,9 @@ def update_config(c, d):
 def load_configs(configs):
     config = {}
     for cn in configs:
-        c = json.load(open(cn), 'r')
-        config.update(c)
+        with open(cn, 'r') as r:
+            c = json.load(r)
+            config.update(c)
     return config
 
 
@@ -149,6 +150,9 @@ def parse_input():
     ap.add_argument('--train_first_n', type=int, default=None, help=' ')
     ap.add_argument('--dev_first_n', type=int, default=None, help=' ')
     ap.add_argument('--history_prefix', action='store_true', default=False, help=' ')
+    ap.add_argument('--save_dstc', default=None, help=' ')
+    ap.add_argument('--load_dstc_dir', default=None, help=' ')
+    ap.add_argument('--load_model', default=None, help=' ')
 
     ap.add_argument('--model', default='SumRows', help=' ')
     ap.add_argument('--use_db_encoder', action='store_true', default=False, help=' ')
@@ -186,8 +190,6 @@ def parse_input():
     ap.add_argument('--dev_sample_every', type=int, default=10, help=' ')
     ap.add_argument('--batch_size', type=int, default=10, help=' ')
     ap.add_argument('--dev_batch_size', type=int, default=1, help=' ')
-    ap.add_argument('--save_dstc', default=None, help=' ')
-    ap.add_argument('--load_dstc_dir', default=None, help=' ')
 
     c = ap.parse_args()
     assert (not c.use_db_encoder) or c.dec_reuse_emb  # implication : #FIXME see e2end/model/__init__.py the same assert
@@ -209,6 +211,7 @@ def parse_input():
     os.makedirs(os.path.dirname(c.name), exist_ok=True)
     if c.validate_to_dir is not None:
         c.log_name = os.path.join(c.validate_to_dir, os.path.basename(c.log_name))
+        os.makedirs(c.validate_to_dir, exist_ok=False)
     setup_logging(c.log_name, console_level=c.log_console_level)
     logger.info('Launched\n\n%s\n' % ' '.join(sys.argv))
     logger.debug('Computed also config values on the fly and merged values from config and command line arguments')

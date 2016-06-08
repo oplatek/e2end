@@ -8,7 +8,7 @@ import logging, sys
 import tensorflow as tf
 from e2end.utils import elapsed_timer, launch_tensorboard, parse_input
 from e2end.debug import setup_debug_hook
-from e2end.training import training, validate 
+from e2end.training import training, validate, load_db_data
 
 logger = logging.getLogger(__name__)
 setup_debug_hook()
@@ -19,11 +19,18 @@ if __name__ == "__main__":
     c, m, db, train, dev = parse_input()
     not c.tensorboard or launch_tensorboard(c.train_dir, c.tensorboardlog)
 
-    # config = tf.ConfigProto(inter_op_paralelism_threads=4,
-    #                 intra_op_paralelism_threads=4)  # FIXME interop parallelization on cluster
     with elapsed_timer() as sess_timer, tf.Session() as sess:
         if c.validate_to_dir is not None:
-            logger.info('Just launching validation and NO training')
+            logger.warning('Just launching validation and NO training')
+            assert c.load_model is not None, 'You should load the trained model'
+            assert len(c.config) > 0, 'You should have set the default parameter to the training parameters by loading training config but config list is empty: %s' % str(c.config)
+            logger.warning('Change the dev_file to the file for validation')
+
+            s = tf.train.Saver()
+            s.restore(sess, c.load_model)
+            logger.info('Trainable model parameters restored')
+            load_db_data(sess, m, train, db)  
+            logger.info('Initialized  model static parameters about DB')
             dev_writer = tf.train.SummaryWriter(c.validate_to_dir, graph_def=sess.graph if c.save_graph else None)
             validate(c, sess, m, dev, -666, dev_writer)
         else:

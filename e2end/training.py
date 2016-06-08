@@ -119,16 +119,19 @@ def validate(c, sess, m, dev, e, dev_writer):
     return avg_turn_reward, avg_turn_loss
 
 
-def training(c, sess, m, db, train, dev, config, train_writer, dev_writer):
-    with elapsed_timer() as init_timer:
-        tf.initialize_all_variables().run(session=sess)
-        logger.info('Graph initialized in %.2f s', init_timer())
-
-    with elapsed_timer() as load_db_data:
+def load_db_data(sess, m, train, db):
+    with elapsed_timer() as t:
         sess.run(m.db_rows.initializer, {m.db_row_initializer: db.table})
         sess.run(m.vocabs_cum_start_idx_low.initializer, {m.vocabs_cum_start_initializer: list(train.word_vocabs_downlimit.values())})
         sess.run(m.vocabs_cum_start_idx_up.initializer, {m.vocabs_cum_start_initializer: list(train.word_vocabs_uplimit.values())})
-        logger.info('DB data loaded in %0.2f s', load_db_data())
+        logger.info('DB data loaded in %0.2f s', t())
+
+
+def training(c, sess, m, db, train, dev, config, train_writer, dev_writer):
+    with elapsed_timer() as init_timer:
+        tf.initialize_all_variables().run(session=sess)
+        load_db_data(sess, m, train, db)
+        logger.info('Graph initialized in %.2f s', init_timer())
 
     stopper, stopper_reward, last_measure_loss = EarlyStopper(c.nbest_models, c.not_change_limit, c.name), 0.0, True
     tf.get_default_graph().finalize()
