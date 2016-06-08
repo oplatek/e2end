@@ -138,6 +138,7 @@ def parse_input():
     ap = argparse.ArgumentParser(__doc__, formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     ap.add_argument('--config', nargs='*', default=[], help=' ')
     ap.add_argument('--exp', default='exp', help=' ')
+    ap.add_argument('--cluster', action='store_true', default=False, help=' ')
     ap.add_argument('--validate_to_dir', default=None, help=' ')
     ap.add_argument('--save_graph', action='store_true', default=False, help=' ')
     ap.add_argument('--tensorboard', action='store_true', default=False, help=' ')

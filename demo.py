@@ -19,7 +19,13 @@ if __name__ == "__main__":
     c, m, db, train, dev = parse_input()
     not c.tensorboard or launch_tensorboard(c.train_dir, c.tensorboardlog)
 
-    with elapsed_timer() as sess_timer, tf.Session() as sess:
+    logger.warning('Reducing parallel opts for cluster! May degrade performance for GPU!')
+    if c.cluster:
+        config = tf.ConfigProto(inter_op_parallelism_threads=4,
+                        intra_op_parallelism_threads=4) 
+    else:
+        config = tf.ConfigProto()
+    with elapsed_timer() as sess_timer, tf.Session(config=config) as sess:
         if c.validate_to_dir is not None:
             logger.warning('Just launching validation and NO training')
             assert c.load_model is not None, 'You should load the trained model'
