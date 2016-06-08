@@ -397,8 +397,8 @@ class Dstc2:
             return pickle.load(r)
 
     def save(self, filename):
-        save_dir = os.path.basedir(filename)
-        os.makedirs(os.path.dirname(save_dir), exist_ok=True)
+        save_dir = os.path.dirname(filename)
+        os.makedirs(save_dir, exist_ok=True)
         with open(filename, 'wb') as w:
             pickle.dump(self, w, protocol=2)
 
