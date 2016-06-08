@@ -19,9 +19,13 @@ if __name__ == "__main__":
     c, m, db, train, dev = parse_input()
     not c.tensorboard or launch_tensorboard(c.train_dir, c.tensorboardlog)
 
-    # config = tf.ConfigProto(inter_op_paralelism_threads=4,
-    #                 intra_op_paralelism_threads=4)  # FIXME interop parallelization on cluster
-    with elapsed_timer() as sess_timer, tf.Session() as sess:
+    logger.warning('Reducing parallel opts for cluster! May degrade performance for GPU!')
+    if c.cluster:
+        config = tf.ConfigProto(inter_op_paralelism_threads=4,
+                        intra_op_paralelism_threads=4) 
+    else:
+        config = tf.ConfigProto()
+    with elapsed_timer() as sess_timer, tf.Session(config=config) as sess:
         if c.validate_to_dir is not None:
             logger.info('Just launching validation and NO training')
             dev_writer = tf.train.SummaryWriter(c.validate_to_dir, graph_def=sess.graph if c.save_graph else None)
