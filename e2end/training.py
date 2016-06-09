@@ -79,9 +79,9 @@ def validate(c, sess, m, dev, e, dev_writer):
                 idxs.extend(random.sample(dialog_idx, pad_len))
                 logger.info('last batch not alligned, sampling %d the padding', pad_len)
 
-            logger.info('\nValidating dialog %04d', d)
+            logger.info('\nValidating dialog batch %04d', d)
             for t in range(np.max(dev.dial_lens[idxs])):
-                logger.info('Validating example %07d', val_num)
+                logger.info('Validating iteration %07d', val_num)
                 input_fd = {m.turn_len.name: dev.turn_lens[idxs, t],
                             m.is_first_turn: c.history_prefix or t == 0,
                             m.enc_dropout_keep: 1.0,

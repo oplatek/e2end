@@ -1,4 +1,6 @@
 #!/bin/bash
+set -e
+
 # model="log/2016-06-08-13-28-05.652-dstc-original-split-OrD0.7w100e20/2016-06-08-13-28-05.652dstc-original-split-OrD0.7w100e20-reward-0.6917-step-0004528"
 model="$1"; shift
 # validate_to_dir="log/TEST-${name}"
@@ -13,7 +15,6 @@ json_config="$(ls $dirname/*.json)"
 name="`basename $json_config`"; 
 val_out="$validate_to_dir/validation.out"
 
-set -e
 ./demo.py  \
   --validate_output "$val_out" \
   --load_dstc_dir  "$pickled_dataset_with_train" \
@@ -21,11 +22,15 @@ set -e
   --config "$json_config" \
   --load_model "$model"
 
-echo validation stored to $validate_to_dir
+printf "Validation stored to $validate_to_dir\n"
 
-echo "Backing up also models - todo backup vocabs too?"
+printf "Backing up also models - todo backup vocabs too?\n"
 cp $model $json_config $validate_to_dir
 
-dst_valout="$val_out ${val_out}_dstc.json"
+printf "Converting validation output to DSTC2 format\n"
+dst_valout="${val_out}_dstc.json"
 ./data/dstc2_original_split/validate2dstc.py "$val_out" "$dst_valout"
+
+printf "Running DSTC2 evaluation scrpts\n"
 ./data/dstc2_original_split/tracker_scorer.sh ./data/dstc2_original_split/tmp "$dst_valout" $dstc2_set_name
+cat "${dst_valout}.txt"
