@@ -31,7 +31,7 @@ def convert(val_output, outfile):
                             slots_dict[k] = tmp[k]
                     goal_nb.append({"score": hyp["score"],
                             "slots": slots_dict})
-        json.dump(data, w, sort_keys=True, indent=4, separators=(',', ': ')) 
+        json.dump(data, w, indent=4, separators=(',', ': ')) 
 
 
 if __name__ == "__main__":
