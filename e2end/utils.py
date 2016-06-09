@@ -186,7 +186,7 @@ def parse_input():
 
     ap.add_argument('--reinforce_first_step', type=int, default=-1, help='If smaller than 0, reinforce learning will be never used')
     ap.add_argument('--reinforce_next_step', type=int, default=5000, help=' ')
-    ap.add_argument('--epochs', type=int, default=1000, help=' ')
+    ap.add_argument('--epochs', type=int, default=50, help=' ')
     ap.add_argument('--train_sample_every', type=int, default=100, help=' ')
     ap.add_argument('--train_loss_every', type=int, default=100, help=' ')
     ap.add_argument('--validate_every', type=int, default=2264, help=' ')
