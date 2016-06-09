@@ -33,7 +33,7 @@ def sigmoid(x):
 
 def update_config(ap, c, d):
     for k in d:
-        if hasattr(c,k) and ap.get_default(k) == getattr(c, k):
+        if hasattr(c, k) and ap.get_default(k) == getattr(c, k):
             logger.debug('Using config value for %s', k)
             setattr(c, k, d[k])
         else:
@@ -152,6 +152,7 @@ def parse_input():
     ap.add_argument('--train_file', default='./data/dstc2/data.dstc2.train.json', help=' ')
     ap.add_argument('--dev_file', default='./data/dstc2/data.dstc2.dev.json', help=' ')
     ap.add_argument('--db_file', default='./data/dstc2/data.dstc2.db.json', help=' ')
+    ap.add_argument('--validate_output', default=None, help='Store outputs of decoding when validation is launched to file')
     ap.add_argument('--train_first_n', type=int, default=None, help=' ')
     ap.add_argument('--dev_first_n', type=int, default=None, help=' ')
     ap.add_argument('--history_prefix', action='store_true', default=False, help=' ')
@@ -200,7 +201,6 @@ def parse_input():
     assert (not c.use_db_encoder) or c.dec_reuse_emb  # implication : #FIXME see e2end/model/__init__.py the same assert
     conf_dict = load_configs(c.config)
     update_config(ap, c, conf_dict)
-
 
     c.name = 'log/%(u)s-%(n)s/%(u)s%(n)s' % {'u': datetime.utcnow().strftime('%Y-%m-%d-%H-%M-%S.%f')[:-3], 'n': c.exp}
     c.train_dir = c.train_dir or c.name + '_traindir'
@@ -287,3 +287,12 @@ def parse_input():
     save_config(c, c.config_filename)
     logger.info('Settings saved to exp config: %s', c.config_filename)
     return c, m, db, train, dev
+
+
+def save_decoded(filename, dialog_turn_outputs):
+    dev = {"sessions": []}
+    for d in dialog_turn_outputs:
+        d = {"turns": [{"nbest": [{"score": 1.0, "output": t}]} for t in d]}  
+        dev["sessions"].append(d)
+    with open(filename, 'w') as w:
+        json.dump(dev, w, indent=4, separators=(',', ': ')) 

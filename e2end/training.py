@@ -3,7 +3,7 @@
 # FIXME implement batch normalization
 import tensorflow as tf
 import heapq, random, logging
-from e2end.utils import elapsed_timer, shuffle, split
+from e2end.utils import elapsed_timer, shuffle, split, save_decoded
 import numpy as np
 
 
@@ -68,11 +68,12 @@ class EarlyStopper(object):
 def validate(c, sess, m, dev, e, dev_writer):
     with elapsed_timer() as valid_timer:
         logger.info('Sorting dev set according dialog lens.')
-        dialog_idx = [i for _, i in sorted(zip(dev.dial_lens.tolist(), range(len(dev))))]
-        val_num = 0
         aggreg_func = dict([(fn, 0.0) for fn in [f.__name__ for w, f in zip(c.eval_func_weights, m.eval_functions) if w != 0] + ['loss', 'reward']])
+        dialog_idx = [i for _, i in sorted(zip(dev.dial_lens.tolist(), range(len(dev))))]
 
+        val_num, dialogs_output = 0, []
         for d, idxs in enumerate([dialog_idx[b: b+ c.batch_size] for b in range(0, len(dialog_idx), c.batch_size)]):
+            batched_turn_outputs = [[] for _ in range(c.batch_size)]
             if len(idxs) < c.batch_size:
                 pad_len = c.batch_size - len(idxs)
                 idxs.extend(random.sample(dialog_idx, pad_len))
@@ -105,9 +106,17 @@ def validate(c, sess, m, dev, e, dev_writer):
                     m.log('dev', dev_writer, input_fd, dev_step_outputs, e, dstc2_set=dev, labels_dt=input_fd)
                 else:
                     dev_step_outputs = m.eval_step(sess, input_fd)
+
+                assert len(m.dec_utts) == c.batch_size, str((m.dec_utts, len(m.dec_utts)))
+                for dturns, douts in zip(batched_turn_outputs, m.dec_utts):
+                    dturns.append([dev.get_target_surface(idx)[1] for idx in douts])
+
                 for n in aggreg_func:
                     aggreg_func[n] += dev_step_outputs[n]
                 val_num += 1
+            dialogs_output.extend(batched_turn_outputs)
+        if c.validate_output:
+            save_decoded(c.validate_output, dialogs_output)
         for n, v in aggreg_func.items():
             aggreg_func[n] = float(v) / np.sum(dev.dial_lens)  # FIXME sum and divide -> AVERAGE may not be the wanted aggregations ops
         validate_set_measures = ([tf.Summary.Value(tag='valid_' + n, simple_value=v) for n, v in aggreg_func.items()])
