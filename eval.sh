@@ -1,15 +1,17 @@
 #!/bin/bash
-model="log/2016-06-08-13-28-05.652-dstc-original-split-OrD0.7w100e20/2016-06-08-13-28-05.652dstc-original-split-OrD0.7w100e20-reward-0.6917-step-0004528"
-validate_to_dir="log/TEST-${name}"
+# model="log/2016-06-08-13-28-05.652-dstc-original-split-OrD0.7w100e20/2016-06-08-13-28-05.652dstc-original-split-OrD0.7w100e20-reward-0.6917-step-0004528"
+model="$1"
+# validate_to_dir="log/TEST-${name}"
+validate_to_dir="$2"
 
 dirname="$(dirname $model)"
 json_config="$(ls $dirname/*.json)"
 name=`basename $json_config`; 
 
-rm $validate_to_dir/*/*
-rmdir $validate_to_dir/*
-rm $validate_to_dir/*
-rmdir $validate_to_dir
+# rm $validate_to_dir/*/*
+# rmdir $validate_to_dir/*
+# rm $validate_to_dir/*
+# rmdir $validate_to_dir
 
 set -e
 ./demo.py  \
