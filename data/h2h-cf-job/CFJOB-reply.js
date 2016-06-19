@@ -81,9 +81,11 @@ require(['jquery-noconflict'], function($) {
         function(){ goals.push($(this).text()); }
         );
     var role = $(element).closest('.html-element-wrapper').find('.role')[0].innerText;
-    console.log('role:' + role);
+    var num_sys_replies = $(element).closest('.html-element-wrapper').find('.num_sys_replies')[0].innerText;
+    var num_usr_replies = $(element).closest('.html-element-wrapper').find('.num_usr_replies')[0].innerText;
 
-    return {sys_utts: sys_utts, usr_utts: usr_utts, goals: goals, consts: consts, role: role};
+    return {sys_utts: sys_utts, usr_utts: usr_utts, goals: goals, consts: consts,
+        role: role, num_sys_replies: num_sys_replies, num_usr_replies: num_usr_replies};
   }
 
   // main validation method, gather data and perform local and external validation
@@ -207,13 +209,22 @@ require(['jquery-noconflict'], function($) {
     if (cf_row_main_element.find('firstconst').text() == 'No data available') {
         cf_row_main_element.find('constnonempty').hide();
     }
+
+    var to_hide = [];
+    for(var i=data.num_usr_replies; i < 5; i++) {
+    to_hide.push('cons' + i);
+    to_hide.push('goal' + i);
+    }
+    for(var i=0; to_hide.length; i++) {
+        cf_row_main_element.find(to_hide[i]).hide();
+    }
         
       if (data.role == 'sys') {
         cf_row_main_element.find('.usronly').hide();
-        cf_row_main_element.find('.usronly.dummyrequired').text('dummy');
+        cf_row_main_element.find('.user').find('textarea').text('dummy');
       } else if(data.role == 'usr') {
         cf_row_main_element.find('.sysonly').hide();
-        cf_row_main_element.find('.sysonly.dummyrequired').text('dummy');
+        cf_row_main_element.find('.sys').find('textarea').text('dummy');
       } 
 
       cf_row_main_element.find('.checkempty').each(function() {

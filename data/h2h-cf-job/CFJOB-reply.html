@@ -2,33 +2,64 @@
 <h2>Task info</h2>
 <div class="info">
     <div style="display:none" class="role">{{role}}</div>
+    <div style="display:none" class="num_sys_replies">{{num_sys_replies}}</div>
+    <div style="display:none" class="num_usr_replies">{{num_usr_replies}}</div>
     Your role is <strong>
         <span class="sysonly sys">Hotline Operator</span>
         <span class="usronly user">Client</span>
     </strong>
 </div>
 <span class="sysonly"> User can ask you for restaurants by area, price range or food type. You can find information about the restaurants in the Restaurants database - table below.</span><br/>
-<div class="goals_const usronly">
-  <span class="usronly"> You want to know following information about a restaurant</span><br/>
-  <strong>
-    <em class="goal usronly checkempty" >{{goal0}}</em>
-    <em class="goal usronly checkempty" >{{goal1}}</em>
-    <em class="goal usronly checkempty" >{{goal2}}</em>
-    <em class="goal usronly checkempty" >{{goal3}}</em>
-    <em class="goal usronly checkempty" >{{goal4}}</em>
-</strong><br/>
-<span class="usronly constnonempty"> but you are interested only in restaurant with following properties</span><br/>
+<span class="usronly constnonempty"> You (client) decided that you want a restaurant with following properties:</span><br/>
 <strong>
-    <em class="constrain usronly checkempty firstconst" >{{cons0}}</em>
-    <em class="constrain usronly checkempty" >{{cons1}}</em>
-    <em class="constrain usronly checkempty" >{{cons2}}</em>
-    <em class="constrain usronly checkempty" >{{cons3}}</em>
-    <em class="constrain usronly checkempty" >{{cons4}}</em>
+    <div class="cons0">
+        <em class="constrain usronly checkempty firstconst" >{{cons0}}</em>
+        <br/><cml:checkbox name="cons_requested0" class="usronly" label="Constraint requested" instructions="Check if you (client) have asked for restaurant with this constrain" />
+    </div>
+    <div class="cons1">
+        <em class="constrain usronly checkempty" >{{cons1}}</em>
+        <br/><cml:checkbox name="cons_requested1" class="usronly" label="Constraint requested" instructions="Check if you (client) have asked for restaurant with this constrain" />
+    </div>
+    <div class="cons2">
+        <em class="constrain usronly checkempty" >{{cons2}}</em>
+        <br/><cml:checkbox name="cons_requested2" class="usronly" label="Constraint requested" instructions="Check if you (client) have asked for restaurant with this constrain" />
+    </div>
+    <div class="cons3">
+        <em class="constrain usronly checkempty" >{{cons3}}</em>
+        <br/><cml:checkbox name="cons_requested3" class="usronly" label="Constraint requested" instructions="Check if you (client) have asked for restaurant with this constrain" />
+    </div>
+    <div class="cons4">
+        <em class="constrain usronly checkempty" >{{cons4}}</em>
+        <br/><cml:checkbox name="cons_requested4" class="usronly" label="Constraint requested" instructions="Check if you (client) have asked for restaurant with this constrain" />
+    </div>
 </strong>
 <br/>
-Ask about the information gradually. Ask only about <strong>one piece of information</strong> in your reply!
+<div class="goals_const usronly">
+  <span class="usronly"> After you have selected a restaurant you would like to know:</span><br/>
+  <strong>
+    <div class="goal0">
+        <em class="goal usronly checkempty" >{{goal0}}</em>
+        <br/><cml:checkbox name="asked_goal0" class="usronly" label="All goals satisfied" instructions="Check if the client (You) already asked about the information" />
+    </div>
+    <div class="goal1">
+        <em class="goal usronly checkempty" >{{goal1}}</em>
+        <br/><cml:checkbox name="asked_goal1" class="usronly" label="All goals satisfied" instructions="Check if the client (You) already asked about the information" />
+    </div>
+    <div class="goal2">
+        <em class="goal usronly checkempty" >{{goal2}}</em>
+        <br/><cml:checkbox name="asked_goal2" class="usronly" label="All goals satisfied" instructions="Check if the client (You) already asked about the information" />
+    </div>
+    <div class="goal3">
+        <em class="goal usronly checkempty" >{{goal3}}</em>
+        <br/><cml:checkbox name="asked_goal3" class="usronly" label="All goals satisfied" instructions="Check if the client (You) already asked about the information" />
+    </div>
+    <div class="goal4">
+        <em class="goal usronly checkempty" >{{goal4}}</em>
+        <br/><cml:checkbox name="asked_goal4" class="usronly" label="All goals satisfied" instructions="Check if the client (You) already asked about the information" />
+    </div>
+</strong><br/>
 </div>
-<hr>
+<hr/>
 <h2> Conversation history</h2>
   <div class="history">
 
@@ -96,9 +127,9 @@ Ask about the information gradually. Ask only about <strong>one piece of informa
   <div class='user'><span class="role_header">62 Client:</span><br/><span class="checkemptyhistory">{{usr29}}</span></div>
 
 </div>
-<hr>
+<hr/>
 <div class="db sysonly">
-<hr>
+<hr/>
   <cml:hidden name="num_rows_selected" validates="required" />
 <div>Number of matching rows in table below <span class="count"><strong>0</strong></span></div>
 <cml:text label="Filter DB" name="filter"  validates="">
@@ -1225,13 +1256,12 @@ Ask about the information gradually. Ask only about <strong>one piece of informa
 	</tbody>
 </table>
 </div>
-<hr>
+<hr/>
 <cml:group> 
   <cml:hidden name="validation_log" />
   <cml:textarea label="Client (your) reply:" name="client_reply" instructions="Converse naturally and ask for information about restaurants based on the provided goals." class="usronly user dummyrequired" validates="required ss-required yext_no_international_url"></cml:textarea>
   <cml:textarea label="Operator (your) reply:" name="system_reply" instructions="Please, read and understand the dialogue history, and based on it continue in conversation! Respond naturally." class="sysonly sys dummyrequired" validates="required ss-required yext_no_international_url"></cml:textarea>
   <cml:checkbox name="finished" label="Conversation finished" instructions="Check if you the feel that the other interlocutor wants to end the conversation." />
-  <cml:checkbox name="goals_satisfied" class="usronly" label="All goals satisfied" instructions="Check if all information requested to find out in this task was alread answered" />
   <cml:checkbox name="error_found" label="Conversation does not make sense" instructions="Mark if some utterance in history does not make sense. Still provide your own reply so the conversation can continue." />
 <cml:text name="error_utt" only-if="!error_found:unchecked" label="Error utterance" instructions="If you spot an illogical replies in the history above, write the number of first illogical reply here." validates="positiveInteger" />
 </cml:group> 
