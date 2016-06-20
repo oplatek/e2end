@@ -31,11 +31,11 @@ class Dialog:
         sys_h = ['sys{:02d}'.format(s) for s in range(Dialog.max_dial_len)]
         usr_h = ['usr{:02d}'.format(u) for u in range(Dialog.max_dial_len)]
         turns_h = [i for tup in zip(sys_h, usr_h) for i in tup]
-        role = ['role']
+        role = ['role', 'num_usr_replies', 'num_sys_replies']
         goals_asked = ['asked_goal{}'.format(g) for g in range(Dialog.max_goals)]
         # goals_answered = ['answered_goal{}'.format(g) for g in range(Dialog.max_goals)]  # no counter part in the form
         cons_spec = ['cons_requested{}'.format(c) for c in range(Dialog.max_constrain)]
-        other_answers = ['client_reply', 'system_reply', 'finished', 'error_found', 'error_utt', 'num_usr_replies', 'num_sys_replies']
+        other_answers = ['client_reply', 'system_reply', 'finished', 'error_found', 'error_utt']
 
         self.headers = goals + cons + turns_h + role + goals_asked + cons_spec + other_answers
         self.columns_to_fill = goals_asked + cons_spec + other_answers
