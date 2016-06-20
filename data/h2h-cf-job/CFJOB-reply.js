@@ -77,7 +77,7 @@ require(['jquery-noconflict'], function($) {
     $(element).closest('.html-element-wrapper').find('.history').find('.user').find('checkemptyhistory').each(
         function(){ usr_utts.push($(this).text()); }
         );
-    $(element).closest('.html-element-wrapper').find('.goal.checkempty').find('strong').each(
+    $(element).closest('.html-element-wrapper').find('.goal').each(
         function(){ goals.push($(this).text()); }
         );
     var role = $(element).closest('.html-element-wrapper').find('.role')[0].innerText;
@@ -210,13 +210,17 @@ require(['jquery-noconflict'], function($) {
         cf_row_main_element.find('constnonempty').hide();
     }
 
+    console.log('DATA.num_usr_replies: ' + data.num_usr_replies);
     var to_hide = [];
-    for(var i=data.num_usr_replies; i < 5; i++) {
-    to_hide.push('cons' + i);
-    to_hide.push('goal' + i);
+    for(var i=Math.floor(data.num_usr_replies); i < 5; i++) {
+      to_hide.push('.cons' + i);
+      to_hide.push('.goal' + i);
     }
-    for(var i=0; to_hide.length; i++) {
-        cf_row_main_element.find(to_hide[i]).hide();
+    var len = to_hide.length;
+    console.log('to_hide.length: ', len);
+    for(var i=Math.floor(0); i < len; i++) {
+      var hid = to_hide[i];
+      cf_row_main_element.find(hid).hide();
     }
         
       if (data.role == 'sys') {
@@ -229,7 +233,7 @@ require(['jquery-noconflict'], function($) {
 
       cf_row_main_element.find('.checkempty').each(function() {
         if ($(this).text() == 'No data available') {
-            $(this).hide();
+            $(this).parent().hide();
         }
       });
 

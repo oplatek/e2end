@@ -9,58 +9,10 @@
         <span class="usronly user">Client</span>
     </strong>
 </div>
-<span class="sysonly"> User can ask you for restaurants by area, price range or food type. You can find information about the restaurants in the Restaurants database - table below.</span><br/>
-<span class="usronly constnonempty"> You (client) decided that you want a restaurant with following properties:</span><br/>
-<strong>
-    <div class="cons0">
-        <em class="constrain usronly checkempty firstconst" >{{cons0}}</em>
-        <br/><cml:checkbox name="cons_requested0" class="usronly" label="Constraint requested" instructions="Check if you (client) have asked for restaurant with this constrain" />
-    </div>
-    <div class="cons1">
-        <em class="constrain usronly checkempty" >{{cons1}}</em>
-        <br/><cml:checkbox name="cons_requested1" class="usronly" label="Constraint requested" instructions="Check if you (client) have asked for restaurant with this constrain" />
-    </div>
-    <div class="cons2">
-        <em class="constrain usronly checkempty" >{{cons2}}</em>
-        <br/><cml:checkbox name="cons_requested2" class="usronly" label="Constraint requested" instructions="Check if you (client) have asked for restaurant with this constrain" />
-    </div>
-    <div class="cons3">
-        <em class="constrain usronly checkempty" >{{cons3}}</em>
-        <br/><cml:checkbox name="cons_requested3" class="usronly" label="Constraint requested" instructions="Check if you (client) have asked for restaurant with this constrain" />
-    </div>
-    <div class="cons4">
-        <em class="constrain usronly checkempty" >{{cons4}}</em>
-        <br/><cml:checkbox name="cons_requested4" class="usronly" label="Constraint requested" instructions="Check if you (client) have asked for restaurant with this constrain" />
-    </div>
-</strong>
-<br/>
-<div class="goals_const usronly">
-  <span class="usronly"> After you have selected a restaurant you would like to know:</span><br/>
-  <strong>
-    <div class="goal0">
-        <em class="goal usronly checkempty" >{{goal0}}</em>
-        <br/><cml:checkbox name="asked_goal0" class="usronly" label="All goals satisfied" instructions="Check if the client (You) already asked about the information" />
-    </div>
-    <div class="goal1">
-        <em class="goal usronly checkempty" >{{goal1}}</em>
-        <br/><cml:checkbox name="asked_goal1" class="usronly" label="All goals satisfied" instructions="Check if the client (You) already asked about the information" />
-    </div>
-    <div class="goal2">
-        <em class="goal usronly checkempty" >{{goal2}}</em>
-        <br/><cml:checkbox name="asked_goal2" class="usronly" label="All goals satisfied" instructions="Check if the client (You) already asked about the information" />
-    </div>
-    <div class="goal3">
-        <em class="goal usronly checkempty" >{{goal3}}</em>
-        <br/><cml:checkbox name="asked_goal3" class="usronly" label="All goals satisfied" instructions="Check if the client (You) already asked about the information" />
-    </div>
-    <div class="goal4">
-        <em class="goal usronly checkempty" >{{goal4}}</em>
-        <br/><cml:checkbox name="asked_goal4" class="usronly" label="All goals satisfied" instructions="Check if the client (You) already asked about the information" />
-    </div>
-</strong><br/>
-</div>
+<span class="sysonly"> <strong>User can ask you for restaurants by area, price range or food type. You can find information about the restaurants in the Restaurants database - table below.</strong></span><br/>
+
 <hr/>
-<h2> Conversation history</h2>
+<h2> Chat history</h2>
   <div class="history">
 
   <div class='sys'><span class="role_header">01 Operator: </span><br/><span class="checkemptyhistory">{{sys00}}</span></div>
@@ -128,8 +80,55 @@
 
 </div>
 <hr/>
-<div class="db sysonly">
+
+<div class="goals_const usronly">
+  <span class="usronly constnonempty"><strong> You (client) want a restaurant with following properties:</strong></span><br/><br/>
+    <div class="cons0">
+        <em class="constrain usronly checkempty firstconst" >{{cons0}}</em>
+        <br/><cml:checkbox name="cons_requested0" class="usronly" label="Constraint requested" instructions="Validate in the chat history if this constrain was already specified." />
+    </div>
+    <div class="cons1">
+        <em class="constrain usronly checkempty" >{{cons1}}</em>
+        <br/><cml:checkbox name="cons_requested1" class="usronly" label="Constraint requested" instructions="Validate in the chat history if this constrain was already specified" />
+    </div>
+    <div class="cons2">
+        <em class="constrain usronly checkempty" >{{cons2}}</em>
+        <br/><cml:checkbox name="cons_requested2" class="usronly" label="Constraint requested" instructions="Validate in the chat history if this constrain was already specified" />
+    </div>
+    <div class="cons3">
+        <em class="constrain usronly checkempty" >{{cons3}}</em>
+        <br/><cml:checkbox name="cons_requested3" class="usronly" label="Constraint requested" instructions="Validate in the chat history if this constrain was already specified" />
+    </div>
+    <div class="cons4">
+        <em class="constrain usronly checkempty" >{{cons4}}</em>
+        <br/><cml:checkbox name="cons_requested4" class="usronly" label="Constraint requested" instructions="Validate in the chat history if this constrain was already specified" />
+    <br/>
+    </div>
+  <span class="usronly"><strong> After you select a restaurant you would like to know:</strong></span><br/><br/>
+    <div class="goal0">
+        <em class="goal usronly checkempty" >{{goal0}}</em>
+        <br/><cml:checkbox name="asked_goal0" class="usronly" label="Already asked" instructions="Check in the chat history if the client already asked about the information" />
+    </div>
+    <div class="goal1">
+        <em class="goal usronly checkempty" >{{goal1}}</em>
+        <br/><cml:checkbox name="asked_goal1" class="usronly" label="Already asked" instructions="Check in the chat history if the client already asked about the information" />
+    </div>
+    <div class="goal2">
+        <em class="goal usronly checkempty" >{{goal2}}</em>
+        <br/><cml:checkbox name="asked_goal2" class="usronly" label="Already asked" instructions="Check in the chat history if the client already asked about the information" />
+    </div>
+    <div class="goal3">
+        <em class="goal usronly checkempty" >{{goal3}}</em>
+        <br/><cml:checkbox name="asked_goal3" class="usronly" label="Already asked" instructions="Check in the chat history if the client already asked about the information" />
+    </div>
+    <div class="goal4">
+        <em class="goal usronly checkempty" >{{goal4}}</em>
+        <br/><cml:checkbox name="asked_goal4" class="usronly" label="Already asked" instructions="Check in the chat history if the client already asked about the information" />
+    </div>
+</div>
+
 <hr/>
+<div class="db sysonly">
   <cml:hidden name="num_rows_selected" validates="required" />
 <div>Number of matching rows in table below <span class="count"><strong>0</strong></span></div>
 <cml:text label="Filter DB" name="filter"  validates="">
@@ -139,7 +138,7 @@
     <strong>Check the checkbox for each row if you talk about it in your reply.</strong>You find the checkbox in the first column "In reply?".
     </cml:instructions> 
 </cml:text>
-<table class="table table-striped">	<thead>
+  <table class="table table-striped">	<thead>
 	<tr>
         <th>In reply?</th>
 		<th>area</th>
@@ -1254,9 +1253,9 @@
 		<td>205 victoria road chesterton</td>
 	</tr>
 	</tbody>
-</table>
+  </table>
+  <hr/>
 </div>
-<hr/>
 <cml:group> 
   <cml:hidden name="validation_log" />
   <cml:textarea label="Client (your) reply:" name="client_reply" instructions="Converse naturally and ask for information about restaurants based on the provided goals." class="usronly user dummyrequired" validates="required ss-required yext_no_international_url"></cml:textarea>
