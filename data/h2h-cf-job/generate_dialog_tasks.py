@@ -63,8 +63,8 @@ class Dialog:
         kwargs['na_rep'] = ''
         dfd.to_csv(filename, **kwargs)
 
-    def merge(self, d):
-        self.df.merge(d.df)
+    def append(self, d):
+        self.df = self.df.append(d.df, ignore_index=True)
         return self
 
     def shuffle(self, inplace=True, axis=0):     
@@ -105,7 +105,7 @@ class Dialog:
 
     def filter_answered(self):
         finished_cond = self.df['finished'].map(lambda x: x.strip() == 'true')
-        notfinished_cond = self.df['finished'].map(lambda x: x.strip() == 'true')
+        notfinished_cond = self.df['finished'].map(lambda x: x.strip() != 'true')
         finished = self.df[finished_cond]
         self.df = self.df[notfinished_cond]
         return Dialog(finished)
@@ -188,11 +188,9 @@ if __name__ == "__main__":
     if c.answers:
         a = Dialog.load_answers(c.answers)
         a.move_reply_to_history()
-        a.to_csv_for_CF('debug.csv')
-        a.to_csv('debug1.csv')
         f = a.filter_answered()
         if len(f.df.index) > 0:
             f.to_csv(c.finished)
-        d = d.merge(a)
+        d.append(a)
 
     d.to_csv_for_CF(c.output_file)
