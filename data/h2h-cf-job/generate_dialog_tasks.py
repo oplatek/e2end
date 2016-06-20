@@ -50,13 +50,15 @@ class Dialog:
         return d
 
     def to_csv(self, filename, sep=',', **kwargs):
+        dfd = self.df[self.headers]
         kwargs['sep'] = sep
         kwargs['na_rep'] = ''
-        self.df.to_csv(filename, **kwargs)
+        dfd.to_csv(filename, **kwargs)
 
     def to_csv_for_CF(self, filename, sep=',', **kwargs):
         print('Crowdflower does not like to be provided with the columns which the workers fill in')
-        dfd = self.df.drop(d.columns_to_fill, axis=1)
+        dfd = self.df[self.headers]
+        dfd = dfd.drop(self.columns_to_fill, axis=1)
         kwargs['sep'] = sep
         kwargs['na_rep'] = ''
         dfd.to_csv(filename, **kwargs)
@@ -77,18 +79,15 @@ class Dialog:
             move the reply to that column
         '''
         df = self.df
-        usr_next, sys_next = []
         for i, row in df.iterrows():
             if row['client_reply'] == 'dummy':
-                usr_next.append('')
-                df.set_value(i, 'role', 'sys')
+                df.set_value(i, 'role', 'usr')  # next
                 num_sys_repl = int(row['num_sys_replies'])
                 num_sys_repl += 1
                 df.set_value(i, 'sys%02d' % num_sys_repl, row['system_reply'])
                 df.set_value(i, 'num_sys_replies', num_sys_repl)
             elif row['system_reply'] == 'dummy':
-                sys_next.append('')
-                df.set_value(i, 'role', 'usr')
+                df.set_value(i, 'role', 'sys')  # next
                 num_usr_repl = int(row['num_usr_replies'])
                 num_usr_repl += 1
                 df.set_value(i, 'usr%02d' % num_usr_repl, row['client_reply'])
@@ -160,9 +159,9 @@ class Dialog:
         d = dict(zip(idx, random.sample(usr_utts, k)))
         self.df['usr00'].fillna(d, inplace=True)
 
-        num_usr_replies = ([1] * (num_rows - k)) + ([0] * k)
+        num_usr_replies = ([0] * (num_rows - k)) + ([1] * k)
         num_sys_replies = [1] * num_rows
-        role = ['sys' if u < s else 'usr' for u, s in zip(num_usr_replies, num_sys_replies)]
+        role = ['usr' if u < s else 'sys' for u, s in zip(num_usr_replies, num_sys_replies)]
         other = pandas.DataFrame.from_dict({
             'role': role,
             'num_usr_replies': num_usr_replies,
@@ -189,6 +188,8 @@ if __name__ == "__main__":
     if c.answers:
         a = Dialog.load_answers(c.answers)
         a.move_reply_to_history()
+        a.to_csv_for_CF('debug.csv')
+        a.to_csv('debug1.csv')
         f = a.filter_answered()
         if len(f.df.index) > 0:
             f.to_csv(c.finished)
