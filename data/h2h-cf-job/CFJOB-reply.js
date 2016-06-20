@@ -212,7 +212,7 @@ require(['jquery-noconflict'], function($) {
 
     console.log('DATA.num_usr_replies: ' + data.num_usr_replies);
     var to_hide = [];
-    for(var i=Math.floor(data.num_usr_replies); i < 5; i++) {
+    for(var i=(Math.floor(data.num_usr_replies) + 1); i < 5; i++) {
       to_hide.push('.cons' + i);
       to_hide.push('.goal' + i);
     }
