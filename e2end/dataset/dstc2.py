@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 import json, logging, os, pickle, bisect
 import numpy as np
 from collections import OrderedDict

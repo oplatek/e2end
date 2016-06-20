@@ -14,6 +14,15 @@ from e2end.dataset.dstc2 import Dstc2, Dstc2DB
 logger = logging.getLogger(__name__)
 
 
+def save_decoded(filename, dialog_turn_outputs):
+    dev = {"sessions": []}
+    for d in dialog_turn_outputs:
+        d = {"turns": [{"nbest": [{"score": 1.0, "output": t}]} for t in d]}  
+        dev["sessions"].append(d)
+    with open(filename, 'w') as w:
+        json.dump(dev, w, indent=4, separators=(',', ': ')) 
+
+
 def shuffle(l):
     l2 = l[:]
     random.shuffle(l2)
@@ -287,12 +296,3 @@ def parse_input():
     save_config(c, c.config_filename)
     logger.info('Settings saved to exp config: %s', c.config_filename)
     return c, m, db, train, dev
-
-
-def save_decoded(filename, dialog_turn_outputs):
-    dev = {"sessions": []}
-    for d in dialog_turn_outputs:
-        d = {"turns": [{"nbest": [{"score": 1.0, "output": t}]} for t in d]}  
-        dev["sessions"].append(d)
-    with open(filename, 'w') as w:
-        json.dump(dev, w, indent=4, separators=(',', ': ')) 

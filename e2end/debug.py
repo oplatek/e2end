@@ -38,7 +38,6 @@ def exc_info_hook(exc_type, value, tb):
         import ipdb
         # we are NOT in interactive mode, print the exception
         traceback.print_exception(exc_type, value, tb)
-        print('try pudb')
         # then start the debugger in post-mortem mode.
         # pdb.pm() # deprecated
         ipdb.post_mortem(tb)  # more modern
