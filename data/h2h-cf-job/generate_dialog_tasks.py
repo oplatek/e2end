@@ -104,8 +104,8 @@ class Dialog:
         return Dialog(df)
 
     def filter_answered(self):
-        finished_cond = self.df['finished'].map(lambda x: x.strip() == 'true')
-        notfinished_cond = self.df['finished'].map(lambda x: x.strip() != 'true')
+        finished_cond = self.df['finished'].map(lambda x: str(x).lower().strip() == 'true')
+        notfinished_cond = self.df['finished'].map(lambda x: str(x).lower().strip() != 'true')
         finished = self.df[finished_cond]
         self.df = self.df[notfinished_cond]
         return Dialog(finished)
