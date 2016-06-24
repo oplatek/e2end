@@ -134,7 +134,7 @@ class Dialog:
             for i, g in enumerate(goals):
                 d['goal{}'.format(i)] = [slot_map[g]]
             for i, (k, v) in enumerate(constrains.items()):
-                if v == 'UNK':  # FIXME hack how to get rid off unwanted values
+                if v == 'UNK' or v == 'not available':  # FIXME hack how to get rid off unwanted values
                     continue
                 k = slot_map[k]
                 d['cons{}'.format(i)] = ['%s=%s' % (k, v)]
