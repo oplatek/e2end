@@ -24,7 +24,7 @@ class Dialog:
     max_goals = 5
     max_constrain = 5
 
-    def __init__(self, data, max_dial_len=30, max_goals=5, max_constrain=5): 
+    def __init__(self, data, db, max_dial_len=30, max_goals=5, max_constrain=5): 
 
         goals = ['goal{}'.format(g) for g in range(Dialog.max_goals)]
         cons = ['cons{}'.format(c) for c in range(Dialog.max_constrain)]
@@ -35,10 +35,14 @@ class Dialog:
         goals_asked = ['asked_goal{}'.format(g) for g in range(Dialog.max_goals)]
         # goals_answered = ['answered_goal{}'.format(g) for g in range(Dialog.max_goals)]  # no counter part in the form
         cons_spec = ['cons_requested{}'.format(c) for c in range(Dialog.max_constrain)]
-        other_answers = ['client_reply', 'system_reply', 'finished', 'error_found', 'error_utt']
+        other_answers = ['client_reply', 'system_reply', 'finished', 'error_found', 'error_utt', 'filter']
+        filter_values = ['filter{:02d}'.format(u) for u in range(Dialog.max_dial_len)]
+        row_in_answer = ['row_in_answer{:02d}'.format(u) for u in range(Dialog.max_dial_len)]
+        row_in_answer_checked = db.col_vocabs[db.get_col_idx('name')].words() 
 
-        self.headers = goals + cons + turns_h + role + goals_asked + cons_spec + other_answers
-        self.columns_to_fill = goals_asked + cons_spec + other_answers
+        self.headers = goals + cons + turns_h + role + goals_asked + cons_spec + \
+                other_answers + filter_values + row_in_answer_checked + row_in_answer
+        self.columns_to_fill = goals_asked + cons_spec + other_answers + row_in_answer_checked
 
         self.df = pandas.DataFrame.from_dict(dict([(h, []) for h in self.headers]))
         add = pandas.DataFrame.from_dict(data) if isinstance(data, dict) else data
@@ -94,6 +98,7 @@ class Dialog:
                 df.set_value(i, 'num_usr_replies', num_usr_repl)
             else:
                 raise ValueError('One of system or client reply should contain dummy value')
+            todo collect filter and checked answers
 
     @staticmethod
     def load_answers(answers, sep=',', **kwargs):
@@ -139,7 +144,7 @@ class Dialog:
                 k = slot_map[k]
                 d['cons{}'.format(i)] = ['%s=%s' % (k, v)]
             d['role'] = 'sys'
-            dialogs.append(Dialog(d))
+            dialogs.append(Dialog(d, db))
         if dialogs:
             return Dialog(pandas.concat([d.df for d in dialogs], ignore_index=True))
         else:
