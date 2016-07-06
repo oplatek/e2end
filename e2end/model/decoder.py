@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 # import numpy as np
 import tensorflow as tf
@@ -200,7 +199,7 @@ def attention_decoder(decoder_inputs, initial_state, attention_states, cell,
             ds = []    # Results of attention reads will be stored here.
             for a in range(num_heads):
                 with tf.variable_scope("Attention_%d" % a):
-                    y = tf.nn.rnn_cell.linear(query, attention_vec_size, True)
+                    y = tf.nn.rnn_cell._linear(query, attention_vec_size, True)  # TODO remove linear fully deprecated
                     y = tf.reshape(y, [-1, 1, 1, attention_vec_size])
                     # Attention mask is a softmax of v^T * tanh(...).
                     s = tf.reduce_sum(
@@ -227,9 +226,12 @@ def attention_decoder(decoder_inputs, initial_state, attention_states, cell,
             # If loop_function is set, we use it instead of decoder_inputs.
             if loop_function is not None and prev is not None:
                 with tf.variable_scope("loop_function", reuse=True):
-                    inp = tf.stop_gradient(loop_function(prev, i))
+                    inp = loop_function(prev, i)
             # Merge input and previous attentions into one vector of the right size.
-            x = tf.nn.rnn_cell.linear([inp] + attns, cell.input_size, True)
+            input_size = inp.get_shape().with_rank(2)[1]
+            if input_size.value is None:
+                    raise ValueError("Could not infer input size from input: %s" % inp.name)
+            x = tf.nn.rnn_cell._linear([inp] + attns, input_size, True)  # TODO remove linear fully depreceatd
             # Run the RNN.
             cell_output, state = cell(x, state)
             # Run the attention mechanism.
@@ -240,10 +242,9 @@ def attention_decoder(decoder_inputs, initial_state, attention_states, cell,
                 attns = attention(state)
 
             with tf.variable_scope("AttnOutputProjection"):
-                output = tf.nn.rnn_cell.linear([cell_output] + attns, output_size, True)
+                output = tf.nn.rnn_cell._linear([cell_output] + attns, output_size, True)
             if loop_function is not None:
-                # We do not propagate gradients over the loop function.
-                prev = tf.stop_gradient(output)
+                prev = output
             outputs.append(output)
 
     return outputs, state
