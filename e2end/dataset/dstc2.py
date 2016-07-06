@@ -110,7 +110,7 @@ class Dstc2:
         speakers = [[[ss] * len(turn[0].strip().split()) + [usr] * len(turn[1].strip().split()) for turn in dialog] for dialog in raw_data]
 
         if dst:  # dialog state tracking
-            logger.info('Hacking targets so it contains DST labels and are NOT shifted by on')
+            logger.info('Hacking targets so it contains DST labels and are NOT shifted by one')
             targets = [[(turn[4]).strip().split() + [EOS] for turn in dialog] for dialog in raw_data]
         else:
             targets = [[(turn[0]).strip().split() + [EOS] for turn in dialog] for dialog in raw_data]

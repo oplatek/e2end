@@ -19,8 +19,8 @@ if __name__ == "__main__":
     c, m, db, train, dev = parse_input()
     not c.tensorboard or launch_tensorboard(c.train_dir, c.tensorboardlog)
 
-    logger.warning('Reducing parallel opts for cluster! May degrade performance for GPU!')
     if c.cluster:
+        logger.warning('Reducing parallel opts for cluster! May degrade performance for GPU!')
         config = tf.ConfigProto(inter_op_parallelism_threads=4,
                         intra_op_parallelism_threads=4) 
     else:
