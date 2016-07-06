@@ -20,17 +20,19 @@ def convert(val_output, outfile):
                 turn['method-label'] = {}
                 turn['requested-slots'] = {}
                 turn['goal-labels-joint'] = goal_nb = []
+                # import ipdb; ipdb.set_trace()
                 for hyp in turn['nbest']:
                     outputs = hyp['output']
-                    tmp = { "food": outputs[0],
-                            "area": outputs[1],
-                            "pricerange": outputs[2]}
+                    tmp = {"food": outputs[0],
+                           "area": outputs[1],
+                           "pricerange": outputs[2]}
                     slots_dict = {}
-                    for k, v in slots_dict.items():
+                    for k, v in tmp.items():
                         if v != 'none':
                             slots_dict[k] = tmp[k]
                     goal_nb.append({"score": hyp["score"],
                             "slots": slots_dict})
+
         json.dump(data, w, indent=4, separators=(',', ': ')) 
 
 

@@ -8,8 +8,8 @@ DSTC_DATASET=$1; shift
 SCOREFILE=${LOGFILE}.csv
 REPORTFILE=${LOGFILE}.txt
 # python $DSTC_HOME/scripts/score.py  --rocbins=2 --dataset $DSTC_DATASET --dataroot $DSTC_HOME/data --trackfile $LOGFILE --scorefile $SCOREFILE --ontology $DSTC_HOME/scripts/config/ontology_dstc2.json
-python2 $DSTC_HOME/scripts/score.py  --dataset $DSTC_DATASET --dataroot $DSTC_HOME/data --trackfile $LOGFILE --scorefile $SCOREFILE --ontology $DSTC_HOME/scripts/config/ontology_dstc2.json
+python2.7 $DSTC_HOME/scripts/score.py  --dataset $DSTC_DATASET --dataroot $DSTC_HOME/data --trackfile $LOGFILE --scorefile $SCOREFILE --ontology $DSTC_HOME/scripts/config/ontology_dstc2.json
 
 echo score script done
-python2 $DSTC_HOME/scripts/report.py --scorefile $SCOREFILE  > $REPORTFILE
+python2.7 $DSTC_HOME/scripts/report.py --scorefile $SCOREFILE  > $REPORTFILE
 echo report script done

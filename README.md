@@ -11,8 +11,9 @@ Howto
 Todo
 ----
 - dynamic batch_size
-- todo how to emaluate args from commandline
-- how to backprogate through `tf.assign` and multiple turns? tf.run_partial?
+- how to backprogate through `tf.assign` and multiple turns? tf.run_partial? - solved feeding whole history
+    - problem too long
+    - multiple turns are presented several times e.g. similar as nmt target words - longer dialogues gets bigger updates
 
 Fix RL update
 ```
