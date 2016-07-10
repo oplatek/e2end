@@ -39,7 +39,7 @@ def gen_slot(slot, goal):
 
 
 def extract_data(file_name):
-    conversation = []
+    turns = []
     with open(file_name) as flabel:
         with open(file_name.replace('label.json', 'log.json')) as flog:
             label = json.load(flabel)
@@ -71,7 +71,8 @@ def extract_data(file_name):
                 print(state)
                 print('-' * 120)
 
-                conversation.append((system, user, user_asr, user_asr_score, state))
+                turns.append((system, user, user_asr, user_asr_score, state))
+    conversation = {'turns': turns, 'session-id': label['session-id']}
     return conversation
 
 

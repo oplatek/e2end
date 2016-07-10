@@ -29,7 +29,7 @@ cp $model $json_config $validate_to_dir
 
 printf "Converting validation output to DSTC2 format\n"
 dst_valout="${val_out}_dstc.json"
-./data/dstc2_original_split/validate2dstc.py "$val_out" "$dst_valout"
+./data/dstc2_original_split/validate2dstc.py "$val_out" ./data/dstc2_original_split/tmp/scripts/config/dstc2_test.flist "$dst_valout"
 
 printf "Running DSTC2 evaluation scrpts\n"
 ./data/dstc2_original_split/tracker_scorer.sh ./data/dstc2_original_split/tmp "$dst_valout" $dstc2_set_name

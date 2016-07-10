@@ -15,10 +15,10 @@ logger = logging.getLogger(__name__)
 
 
 def save_decoded(filename, dialog_turn_outputs):
-    dev = {"sessions": []}
+    dev = {'sessions': []}
     for d in dialog_turn_outputs:
-        d = {"turns": [{"nbest": [{"score": 1.0, "output": t}]} for t in d]}  
-        dev["sessions"].append(d)
+        d = {'id': d['id'], 'turns': [{'nbest': [{'score': 1.0, 'output': t}]} for t in d['turns']]}  
+        dev['sessions'].append(d)
     with open(filename, 'w') as w:
         json.dump(dev, w, indent=4, separators=(',', ': ')) 
 

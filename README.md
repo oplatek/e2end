@@ -10,6 +10,8 @@ Howto
 
 Todo
 ----
+- gold_row_lens - all zeros? - ipdb> np.all(x == dev.gold_row_lens) True
+-
 - dynamic batch_size
 - how to backprogate through `tf.assign` and multiple turns? tf.run_partial? - solved feeding whole history
     - problem too long
