@@ -33,7 +33,6 @@ def convert(val_output, outfile, session_keys=None):
 
         if session_keys is not None:
             unsorted_sessions = data['sessions']
-            assert len(unsorted_sessions) == len(session_keys), (len(unsorted_sessions), len(session_keys))
             sessions_dict = dict([(session['id'], session) for session in unsorted_sessions])
             data['sessions'] = [sessions_dict[key] for key in session_keys]
 
@@ -42,10 +41,10 @@ def convert(val_output, outfile, session_keys=None):
 
 def load_session_ids(flist):
     sessions_ids = []
-    with open(flist, 'rb') as r:
+    with open(flist, 'r') as r:
         for line in r:
             session_id = line.strip().split('/')[1]
-            session_ids.append(session_id)
+            sessions_ids.append(session_id)
     return sessions_ids
 
 
@@ -55,5 +54,5 @@ if __name__ == "__main__":
     ap.add_argument('session_list', help=' ')
     ap.add_argument('out_dstc', help=' ')
     c = ap.parse_args()
-    session_ids = load_session_ids(c.session_list)
-    convert(c.validated, c.out_dstc, session_keys=session_ids)
+    sessions_ids = load_session_ids(c.session_list)
+    convert(c.validated, c.out_dstc, session_keys=sessions_ids)
