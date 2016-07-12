@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
+'''
+Generates data for training from oficial formats
+'''
 import glob
+import argparse
 import json
 import os
 import re
@@ -86,7 +90,7 @@ def gen_data(dir_name, flist=None):
     else:
         with open(flist, 'r') as r:
             for line in r:
-                json = os.path.join('tmp', 'dstc2_traindev', 'data', line.strip(), 'label.json')
+                json = os.path.join(dir_name, line.strip(), 'label.json')
                 assert os.path.isfile(json), json
                 jsons.append(json)
 
@@ -98,19 +102,22 @@ def gen_data(dir_name, flist=None):
 
 
 if __name__ == '__main__':
+    ap = argparse.ArgumentParser(__doc__, formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    ap.add_argument('--random_split', action='store_true', default=False, help=' ')
+    c = ap.parse_args()
     if not os.path.exists('./tmp'):
         os.mkdir('./tmp')
     download_dstc2_data()
     unpack()
 
-    conversations_dev = gen_data('./tmp/dstc2_traindev/data', './dstc2_dev.flist')
-    conversations_train = gen_data('./tmp/dstc2_traindev/data', './dstc2_train.flist')
-    conversations_test = gen_data('./tmp/dstc2_test/data')
+    conversations_train = gen_data('./tmp/dstc2_traindev/data', './tmp/dstc2_traindev/scripts/config/dstc2_train.flist')
+    conversations_dev = gen_data('./tmp/dstc2_traindev/data', './tmp/dstc2_traindev/scripts/config/dstc2_dev.flist')
+    conversations_test = gen_data('./tmp/dstc2_test/data', './tmp/dstc2_test/scripts/config/dstc2_test.flist')
 
     # I resplit the data as the train and test are not balanced
     # - there are only 16 'There are' phrases in the original traindev data
     # - but there are 1210 'There are' phrases in the original traindev data
-    original = True
+    original = not c.random_split 
     if original:
         with open('./data.dstc2.train.json', 'w') as f:
             json.dump(conversations_train, f, sort_keys=True, indent=4, separators=(',', ': '))
