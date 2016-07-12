@@ -7,7 +7,7 @@ import argparse
 import json
 import os
 import re
-from random import shuffle
+from random import shuffle, seed
 
 import wget
 
@@ -103,7 +103,8 @@ def gen_data(dir_name, flist=None):
 
 if __name__ == '__main__':
     ap = argparse.ArgumentParser(__doc__, formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    ap.add_argument('--random_split', action='store_true', default=False, help=' ')
+    ap.add_argument('--random_split', action='store_true', default=False, help='Mixing up the original train, dev, test splits and re-splitting them randomly')
+    ap.add_argument('--seed', type=int, default=123, help='Seed used to random splitting. See random_split')
     c = ap.parse_args()
     if not os.path.exists('./tmp'):
         os.mkdir('./tmp')
@@ -126,6 +127,7 @@ if __name__ == '__main__':
         with open('./data.dstc2.test.json', 'w') as f:
             json.dump(conversations_test, f, sort_keys=True, indent=4, separators=(',', ': '))
     else:
+        seed(c.seed)
         conversations = conversations_test + conversations_train + conversations_test
         shuffle(conversations)
 
