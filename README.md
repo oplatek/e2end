@@ -10,6 +10,8 @@ Howto
 
 Todo
 ----
+- Train the models based on distance to the ideal answer - embedding of gold answer  compare to embedding of predicted answer
+    - Useful as RL score
 - gold_row_lens - all zeros? - ipdb> np.all(x == dev.gold_row_lens) True
 -
 - dynamic batch_size
