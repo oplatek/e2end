@@ -1261,8 +1261,8 @@
   <cml:hidden name="validation_log" />
   <cml:textarea label="Client (your) reply:" name="client_reply" instructions="Converse naturally and ask for information about restaurants based on the provided goals." class="usronly user dummyrequired" validates="required ss-required yext_no_international_url"></cml:textarea>
   <cml:textarea label="Operator (your) reply:" name="system_reply" instructions="Please, read and understand the dialogue history, and based on it continue in conversation! Respond naturally." class="sysonly sys dummyrequired" validates="required ss-required yext_no_international_url"></cml:textarea>
-  <cml:checkbox name="finished" label="Conversation finished" instructions="Check if you the feel that the other interlocutor wants to end the conversation." />
-  <cml:checkbox name="error_found" label="Conversation does not make sense" instructions="Mark if some utterance in history does not make sense. Still provide your own reply so the conversation can continue." />
+  <cml:checkbox name="finished" label="Previous conversation may have finished" instructions="Check if you the feel that the other interlocutor wants to end the conversation." />
+  <cml:checkbox name="error_found" label="Previous conversation does not make sense" instructions="Mark if some utterance in history does not make sense. Still provide your own reply so the conversation can continue." />
 <cml:text name="error_utt" only-if="!error_found:unchecked" label="Error utterance" instructions="If you spot an illogical replies in the history above, write the number of first illogical reply here." validates="positiveInteger" />
 </cml:group> 
 </div>
