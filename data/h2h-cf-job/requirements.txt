@@ -1,0 +1,2 @@
+pandas==0.18.1
+git+https://github.com/oplatek/crowdflower.git@master

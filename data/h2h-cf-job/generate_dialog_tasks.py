@@ -38,7 +38,7 @@ class Dialog:
         other_answers = ['client_reply', 'system_reply', 'finished', 'error_found', 'error_utt', 'filter']
         filter_values = ['filter{:02d}'.format(u) for u in range(Dialog.max_dial_len)]
         row_in_answer = ['row_in_answer{:02d}'.format(u) for u in range(Dialog.max_dial_len)]
-        row_in_answer_checked = db.col_vocabs[db.get_col_idx('name')].words() 
+        self.row_in_answer_checked = row_in_answer_checked = list(db.col_vocabs[db.get_col_idx('name')].words)
 
         self.headers = goals + cons + turns_h + role + goals_asked + cons_spec + \
                 other_answers + filter_values + row_in_answer_checked + row_in_answer
@@ -47,11 +47,6 @@ class Dialog:
         self.df = pandas.DataFrame.from_dict(dict([(h, []) for h in self.headers]))
         add = pandas.DataFrame.from_dict(data) if isinstance(data, dict) else data
         self.df = self.df.append(add)
-
-    @staticmethod
-    def from_df(self, df):
-        d = Dialog({}) 
-        return d
 
     def to_csv(self, filename, sep=',', **kwargs):
         dfd = self.df[self.headers]
@@ -90,6 +85,9 @@ class Dialog:
                 num_sys_repl += 1
                 df.set_value(i, 'sys%02d' % num_sys_repl, row['system_reply'])
                 df.set_value(i, 'num_sys_replies', num_sys_repl)
+                df.set_value(i, 'filter%02d' % num_sys_repl, row('filter'))
+                in_answer = [key_restaurant_name for key_restaurant_name in self.row_in_answer_checked if str(row[key_restaurant_name]).lower().strip() == 'true']
+                d.set_value(i, 'row_in_answer%02d' % num_sys_repl, ';'.join(in_answer))
             elif row['system_reply'] == 'dummy':
                 df.set_value(i, 'role', 'sys')  # next
                 num_usr_repl = int(row['num_usr_replies'])
@@ -98,15 +96,14 @@ class Dialog:
                 df.set_value(i, 'num_usr_replies', num_usr_repl)
             else:
                 raise ValueError('One of system or client reply should contain dummy value')
-            todo collect filter and checked answers
 
     @staticmethod
-    def load_answers(answers, sep=',', **kwargs):
+    def load_answers(answers, db, sep=',', **kwargs):
         kwargs['sep'] = sep
         df = pandas.read_csv(answers, **kwargs) 
         # empty strings instead of NaNs 
         df.fillna('', inplace=True)
-        return Dialog(df)
+        return Dialog(df, db)
 
     def filter_answered(self):
         finished_cond = self.df['finished'].map(lambda x: str(x).lower().strip() == 'true')
@@ -146,9 +143,10 @@ class Dialog:
             d['role'] = 'sys'
             dialogs.append(Dialog(d, db))
         if dialogs:
-            return Dialog(pandas.concat([d.df for d in dialogs], ignore_index=True))
+            data = pandas.concat([d.df for d in dialogs], ignore_index=True)
+            return Dialog(data, db)
         else:
-            return Dialog({})
+            return Dialog({}, db)
 
     def initialize_with_hello(self, usr_prob, sys_utts, usr_utts):
         num_rows = len(self.df.index)
@@ -189,7 +187,7 @@ if __name__ == "__main__":
 
     db = Dstc2DB(c.db_file)
     d = Dialog.generate_empty_with_goals(db, c.gen_empty)
-    d.initialize_with_hello(c.hello_usr_prob, ['Hello , welcome to the Cambridge restaurant system? You can ask for restaurants by area , price range or food type . How may I help you?'], ['Hi'])
+    d.initialize_with_hello(c.hello_usr_prob, ['Hello , welcome to the Cambridge restaurant system! You can ask for restaurants by area , price range or food type . How may I help you?'], ['Hi'])
     if c.answers:
         a = Dialog.load_answers(c.answers)
         a.move_reply_to_history()

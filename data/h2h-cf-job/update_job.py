@@ -1,15 +1,19 @@
-# coding: utf-8
+#!/usr/bin/env python2
+# -*- coding: utf-8 -*-
+
 if __name__ == "__main__":
     import sys
     sys.path.append('../..')
     from generate_dialog_tasks import Dialog
+    from e2end.dataset.dstc2 import Dstc2DB
 import crowdflower
 
 
-data = Dialog.load_answers('./data/test.csv')
+db = Dstc2DB('../../data/dstc2/data.dstc2.db.json')
+data = Dialog.load_answers('./for-next-round/empty10b.csv', db)
 data = data.df.to_dict(orient='records')
 
-title = 'Test-Chat'
+title = 'Chat-DO-NOT-USE'
 instructions = open('./CFJOB-reply.instructions.html').read()
 cml = open('./CFJOB-reply.html').read()  # Ignoring 406 "Not Accepted" error: CrowdFlowerError: 414 Request-URI Too Large at https://api.crowdflower.com/v1/jobs/913237
 
@@ -35,22 +39,22 @@ job = conn.upload(data)
 options = {}
 update_result = job.update({
     'title': title,
-    # 'included_countries': ['US', 'GB', 'CZ'],  
+    'included_countries': ['US', 'GB', 'CZ'],  
     # Limit to the USA and United Kingdom
     # Please note, if you are located in another country and you would like
     # to experiment with the sandbox (internal workers) then you also need
     # to add your own country. Otherwise your submissions as internal worker
     # will be rejected with Error 301 (low quality).
-    # 'payment_cents': 5,
-    # 'judgments_per_unit': 1,
+    'payment_cents': 1,
+    'judgments_per_unit': 1,
     'instructions': instructions,
     'cml': cml,
-    # 'css': css,
-    # 'js': jscript,
+    'css': css,
+    'js': jscript,
     # 'options': options,
 })
 if 'errors' in update_result:
-        print(update_result['errors'])
+    print(update_result['errors'])
 
 # job.gold_add('gender', 'gender_gold')
 
