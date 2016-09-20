@@ -103,19 +103,20 @@ class Dstc2:
         self.EOS = EOS = 'EOS'   # Symbol which the decoder should produce as last one'
         assert isinstance(db, Dstc2DB), type(db)
         raw_data = json.load(open(filename))
-        self._first_n = min(first_n, len(raw_data)) if first_n else len(raw_data)
-        dialogs = [[(turn[0] + ' ' + turn[1]).strip().split() for turn in dialog] for dialog in raw_data]
+        first_n = min(first_n, len(raw_data)) if first_n else len(raw_data)
+        dialogs = [[(turn[0] + ' ' + turn[1]).strip().split() for turn in dialog['turns']] for dialog in raw_data]
         self._speak_vocab = Vocabulary([], extra_words=['usr', 'sys'], unk=None)
         usr, ss = self._speak_vocab.get_i('usr'), self._speak_vocab.get_i('sys')
-        speakers = [[[ss] * len(turn[0].strip().split()) + [usr] * len(turn[1].strip().split()) for turn in dialog] for dialog in raw_data]
+        speakers = [[[ss] * len(turn[0].strip().split()) + [usr] * len(turn[1].strip().split()) for turn in dialog['turns']] for dialog in raw_data]
+        self.session_ids = ids = [dialog['session-id'] for dialog in raw_data]
 
         if dst:  # dialog state tracking
-            logger.info('Hacking targets so it contains DST labels and are NOT shifted by on')
-            targets = [[(turn[4]).strip().split() + [EOS] for turn in dialog] for dialog in raw_data]
+            logger.info('Hacking targets so it contains DST labels and are NOT shifted by one')
+            targets = [[(turn[4]).strip().split() + [EOS] for turn in dialog['turns']] for dialog in raw_data]
         else:
-            targets = [[(turn[0]).strip().split() + [EOS] for turn in dialog] for dialog in raw_data]
+            targets = [[(turn[0]).strip().split() + [EOS] for turn in dialog['turns']] for dialog in raw_data]
 
-        dialogs, speakers, targets = dialogs[:first_n], speakers[:first_n], targets[:first_n]
+        dialogs, speakers, targets, ids = dialogs[:first_n], speakers[:first_n], targets[:first_n], ids[:first_n]
 
         self.history_prefix = history_prefix
         if history_prefix:

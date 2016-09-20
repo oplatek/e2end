@@ -15,10 +15,10 @@ logger = logging.getLogger(__name__)
 
 
 def save_decoded(filename, dialog_turn_outputs):
-    dev = {"sessions": []}
+    dev = {'sessions': []}
     for d in dialog_turn_outputs:
-        d = {"turns": [{"nbest": [{"score": 1.0, "output": t}]} for t in d]}  
-        dev["sessions"].append(d)
+        d = {'id': d['id'], 'turns': [{'nbest': [{'score': 1.0, 'output': t}]} for t in d['turns']]}  
+        dev['sessions'].append(d)
     with open(filename, 'w') as w:
         json.dump(dev, w, indent=4, separators=(',', ': ')) 
 
@@ -202,6 +202,7 @@ def parse_input():
     ap.add_argument('--nbest_models', type=int, default=3, help='Currently used both for RL and Xent updates')
     ap.add_argument('--not_change_limit', type=int, default=2, help='Currently used both for RL and Xent updates')
     ap.add_argument('--sample_unk', type=int, default=0, help=' ')
+    ap.add_argument('--max_turn_len', type=int, default=None, help=' ')
     ap.add_argument('--dev_sample_every', type=int, default=10, help=' ')
     ap.add_argument('--batch_size', type=int, default=10, help=' ')
     ap.add_argument('--dev_batch_size', type=int, default=1, help=' ')
@@ -242,6 +243,7 @@ def parse_input():
         else:
             train = Dstc2(c.train_file, db, row_targets=c.row_targets, dst=c.dst,
                           sample_unk=c.sample_unk, first_n=c.train_first_n, 
+                          max_turn_len=c.max_turn_len,
                           history_prefix=c.history_prefix)
             dev = Dstc2(c.dev_file, db,
                     row_targets=train.row_targets, dst=c.dst,

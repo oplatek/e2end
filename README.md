@@ -10,9 +10,14 @@ Howto
 
 Todo
 ----
+- Train the models based on distance to the ideal answer - embedding of gold answer  compare to embedding of predicted answer
+    - Useful as RL score
+- gold_row_lens - all zeros? - ipdb> np.all(x == dev.gold_row_lens) True
+-
 - dynamic batch_size
-- todo how to emaluate args from commandline
-- how to backprogate through `tf.assign` and multiple turns? tf.run_partial?
+- how to backprogate through `tf.assign` and multiple turns? tf.run_partial? - solved feeding whole history
+    - problem too long
+    - multiple turns are presented several times e.g. similar as nmt target words - longer dialogues gets bigger updates
 
 Fix RL update
 ```

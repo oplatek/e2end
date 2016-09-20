@@ -1,9 +1,13 @@
 #!/usr/bin/env python3
+'''
+Generates data for training from oficial formats
+'''
 import glob
+import argparse
 import json
 import os
 import re
-from random import shuffle
+from random import shuffle, seed
 
 import wget
 
@@ -39,7 +43,7 @@ def gen_slot(slot, goal):
 
 
 def extract_data(file_name):
-    conversation = []
+    turns = []
     with open(file_name) as flabel:
         with open(file_name.replace('label.json', 'log.json')) as flog:
             label = json.load(flabel)
@@ -71,7 +75,8 @@ def extract_data(file_name):
                 print(state)
                 print('-' * 120)
 
-                conversation.append((system, user, user_asr, user_asr_score, state))
+                turns.append((system, user, user_asr, user_asr_score, state))
+    conversation = {'turns': turns, 'session-id': label['session-id']}
     return conversation
 
 
@@ -85,7 +90,7 @@ def gen_data(dir_name, flist=None):
     else:
         with open(flist, 'r') as r:
             for line in r:
-                json = os.path.join('tmp', 'dstc2_traindev', 'data', line.strip(), 'label.json')
+                json = os.path.join(dir_name, line.strip(), 'label.json')
                 assert os.path.isfile(json), json
                 jsons.append(json)
 
@@ -97,19 +102,23 @@ def gen_data(dir_name, flist=None):
 
 
 if __name__ == '__main__':
+    ap = argparse.ArgumentParser(__doc__, formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    ap.add_argument('--random_split', action='store_true', default=False, help='Mixing up the original train, dev, test splits and re-splitting them randomly')
+    ap.add_argument('--seed', type=int, default=123, help='Seed used to random splitting. See random_split')
+    c = ap.parse_args()
     if not os.path.exists('./tmp'):
         os.mkdir('./tmp')
     download_dstc2_data()
     unpack()
 
-    conversations_dev = gen_data('./tmp/dstc2_traindev/data', './dstc2_dev.flist')
-    conversations_train = gen_data('./tmp/dstc2_traindev/data', './dstc2_train.flist')
-    conversations_test = gen_data('./tmp/dstc2_test/data')
+    conversations_train = gen_data('./tmp/dstc2_traindev/data', './tmp/dstc2_traindev/scripts/config/dstc2_train.flist')
+    conversations_dev = gen_data('./tmp/dstc2_traindev/data', './tmp/dstc2_traindev/scripts/config/dstc2_dev.flist')
+    conversations_test = gen_data('./tmp/dstc2_test/data', './tmp/dstc2_test/scripts/config/dstc2_test.flist')
 
     # I resplit the data as the train and test are not balanced
     # - there are only 16 'There are' phrases in the original traindev data
     # - but there are 1210 'There are' phrases in the original traindev data
-    original = True
+    original = not c.random_split 
     if original:
         with open('./data.dstc2.train.json', 'w') as f:
             json.dump(conversations_train, f, sort_keys=True, indent=4, separators=(',', ': '))
@@ -118,6 +127,7 @@ if __name__ == '__main__':
         with open('./data.dstc2.test.json', 'w') as f:
             json.dump(conversations_test, f, sort_keys=True, indent=4, separators=(',', ': '))
     else:
+        seed(c.seed)
         conversations = conversations_test + conversations_train + conversations_test
         shuffle(conversations)
 

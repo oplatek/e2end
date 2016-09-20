@@ -67,17 +67,18 @@ class EarlyStopper(object):
 
 def validate(c, sess, m, dev, e, dev_writer):
     with elapsed_timer() as valid_timer:
-        logger.info('Sorting dev set according dialog lens.')
         aggreg_func = dict([(fn, 0.0) for fn in [f.__name__ for w, f in zip(c.eval_func_weights, m.eval_functions) if w != 0] + ['loss', 'reward']])
-        dialog_idx = [i for _, i in sorted(zip(dev.dial_lens.tolist(), range(len(dev))))]
+        # logger.info('Sorting dev set according dialog lens.')
+        # dialog_idx = [i for _, i in sorted(zip(dev.dial_lens.tolist(), range(len(dev))))]
+        dialog_idx = list(range(len(dev)))
 
         val_num, dialogs_output = 0, []
         for d, idxs in enumerate([dialog_idx[b: b+ c.batch_size] for b in range(0, len(dialog_idx), c.batch_size)]):
-            batched_turn_outputs = [[] for _ in range(c.batch_size)]
             if len(idxs) < c.batch_size:
                 pad_len = c.batch_size - len(idxs)
                 idxs.extend(random.sample(dialog_idx, pad_len))
-                logger.info('last batch not alligned, sampling %d the padding', pad_len)
+                logger.info('last batch not alligned, sampling %d dialogs for padding', pad_len)
+            batched_dial_outputs = [{'id': dev.session_ids[i], 'turns': []} for i in idxs]
 
             logger.info('\nValidating dialog batch %04d', d)
             for t in range(np.max(dev.dial_lens[idxs])):
@@ -108,13 +109,21 @@ def validate(c, sess, m, dev, e, dev_writer):
                     dev_step_outputs = m.eval_step(sess, input_fd)
 
                 assert len(m.dec_utts) == c.batch_size, str((m.dec_utts, len(m.dec_utts)))
-                for dturns, douts in zip(batched_turn_outputs, m.dec_utts):
-                    dturns.append([dev.get_target_surface(idx)[1] for idx in douts])
+                for b, (dial, douts) in enumerate(zip(batched_dial_outputs, m.dec_utts)):
+                    # print('DEBUG', b, idxs[b], t, dev.turn_target_lens[idxs[b], t])
+                    if dev.turn_target_lens[idxs[b], t] == 0:
+                        continue
+                    dial['turns'].append([dev.get_target_surface(idx)[1] for idx in douts])
 
                 for n in aggreg_func:
                     aggreg_func[n] += dev_step_outputs[n]
                 val_num += 1
-            dialogs_output.extend(batched_turn_outputs)
+            dialogs_output.extend(batched_dial_outputs)
+
+        for d in dialogs_output:  # DEBUG
+            print('session_id DEBUG\t%s' % d['id'])  # DEBUG
+
+        dialogs_output = [diag for diag in dialogs_output if len(diag['turns']) > 0]  # FIXME solve more elegantly
         if c.validate_output:
             save_decoded(c.validate_output, dialogs_output)
         for n, v in aggreg_func.items():
