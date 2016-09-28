@@ -1,4 +1,6 @@
 #!/bin/bash
+repo_root=$(git rev-parse --show-toplevel)
+cd $repo_root
 
 for dropout in 0.6 0.65 0.7 1.0 ; do
   for wemb in 10 100 150 200 300 ; do 
