@@ -352,22 +352,26 @@ class E2E_property_decodingBase():
         times = [inpt_timer(), db_timer(), dec_timer(), loss_timer(), updates_timer()]
         logger.debug('Blocks times: %s,\n total: %.2f', times, sum(times))
 
+    # @profile
     def _xent_update(self, sess, train_dict, log_output):
         logger.info('Xent updates for step %7d', self.step)
         if log_output:
             info_dic = self.eval_step(sess, train_dict, log_output)
         else:
             info_dic = {}
+        # on MacbookPro CPUs 299759.5   Timer unit: 1e-06 s using kernprof
         sess.run(self.xent_updates, train_dict)
         return info_dic
 
     def step_increment(self):
         self.step += 1
 
+    # @profile
     def train_step(self, sess, train_dict, log_output=False):
         c = self.config
         if c.reinforce_first_step < 0 or self.step < c.reinforce_first_step:
-            return self._xent_update(sess, train_dict, log_output)
+            # on MacbookPro CPUs 321081.3   Timer unit: 1e-06 s using kernprof
+            return self._xent_update(sess, train_dict, log_output)  
 
         logger.info('Rein updates for step %7d', self.step)
 
@@ -381,6 +385,7 @@ class E2E_property_decodingBase():
         sess.run([self.mixer_optimizer, self.update_expected_reward], feed_dict=train_dict)
         return info_dir
 
+    # @profile
     def eval_step(self, sess, eval_dict, log_output=False):
         c = self.config
         output_feed = self.dec_outputs + self.dec_vocab_idss_op + self.trg_vocab_idss_op + self.gold_rowss + [self.loss]
@@ -388,6 +393,7 @@ class E2E_property_decodingBase():
             output_feed.extend([self.summarize])
             # output_feed.extend([self.use_db_b, self.summarize])
 
+        # on MacbookPro CPUs 127204.1   Timer unit: 1e-06 s using kernprof
         out_vals = sess.run(output_feed, eval_dict)
         x = len(self.dec_outputs)
         y = x + len(self.dec_vocab_idss_op)
@@ -428,6 +434,7 @@ class E2E_property_decodingBase():
 
         return ret_dir 
 
+    # @profile
     def decode_step(self, sess, input_feed_dict):
         decoder_outs = sess.run(self.dec_outputs, input_feed_dict)
         return {'decoder_outputs': decoder_outs}
